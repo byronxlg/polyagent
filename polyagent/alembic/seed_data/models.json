@@ -1,0 +1,52 @@
+[
+  {
+    "name": "GPT-5 Mini",
+    "provider_name": "OpenAI",
+    "provider": "openai",
+    "provider_model_id": "gpt-5-mini",
+    "description": "Fast reasoning model for complex problem solving",
+    "is_reasoning": true,
+    "input_cost_per_million": "0.150",
+    "output_cost_per_million": "0.600"
+  },
+  {
+    "name": "GPT-5 Nano",
+    "provider_name": "OpenAI",
+    "provider": "openai",
+    "provider_model_id": "gpt-5-nano",
+    "description": "Ultra-fast reasoning model for simple tasks",
+    "is_reasoning": true,
+    "input_cost_per_million": "0.050",
+    "output_cost_per_million": "0.200"
+  },
+  {
+    "name": "GPT-4.1 Mini",
+    "provider_name": "OpenAI",
+    "provider": "openai",
+    "provider_model_id": "gpt-4.1-mini",
+    "description": "Affordable small model for focused tasks",
+    "is_reasoning": false,
+    "input_cost_per_million": "0.100",
+    "output_cost_per_million": "0.400"
+  },
+  {
+    "name": "GPT-5",
+    "provider_name": "OpenAI",
+    "provider": "openai",
+    "provider_model_id": "gpt-5",
+    "description": "Intelligent reasoning model for coding and agentic tasks",
+    "is_reasoning": true,
+    "input_cost_per_million": "1.25",
+    "output_cost_per_million": "10.00"
+  },
+  {
+    "name": "GPT-5.1",
+    "provider_name": "OpenAI",
+    "provider": "openai",
+    "provider_model_id": "gpt-5.1",
+    "description": "Flagship model for coding and agentic tasks with configurable reasoning and non-reasoning effort.",
+    "is_reasoning": true,
+    "input_cost_per_million": "1.25",
+    "output_cost_per_million": "10.00"
+  }
+]

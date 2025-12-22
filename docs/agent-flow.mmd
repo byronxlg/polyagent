@@ -1,0 +1,21 @@
+flowchart TD
+    Start([Agent Receives Input]) --> WrapModelStart
+
+    WrapModelStart --> CallModel[Call LLM Model]
+    CallModel --> WrapModelEnd
+
+    WrapModelEnd -.->|Task Complete| FinalResult[Return Final Result]
+    FinalResult --> End([End])
+
+    WrapModelEnd -.->|Use Tool| WrapToolStart
+
+    WrapToolStart --> ExecuteTool[Execute Selected Tool]
+    ExecuteTool --> WrapToolEnd
+    WrapToolEnd --> WrapModelStart
+
+    WrapModelStart["@wrap_model_call (Enter)<br/>- Validate balance > 0<br/>- Record input prompt in AgentModelUsage"]:::middleware
+    WrapModelEnd["@wrap_model_call (Exit)<br/>- Record model output in AgentModelUsage<br/>- Deduct cost via Transaction"]:::middleware
+    WrapToolStart["@wrap_tool_call (Enter)<br/>- Record tool input in AgentToolUsage"]:::middleware
+    WrapToolEnd["@wrap_tool_call (Exit)<br/>- Record tool output in AgentToolUsage"]:::middleware
+
+    classDef middleware stroke-dasharray: 5 5

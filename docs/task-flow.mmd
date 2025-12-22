@@ -1,0 +1,77 @@
+%% Task Flow - From Creation to Completion
+sequenceDiagram
+    participant ExternalSystem
+    participant TaskService
+    participant Task
+    participant Agent
+    participant AgentTask
+    participant LLM
+    participant Tool
+    participant TransactionService
+
+    ExternalSystem->>TaskService: Create Task<br/>(description, reward_dollars, deadline)
+    TaskService->>Task: CREATE Task
+    Note over Task: Task now available for agents
+
+    Agent->>TaskService: Check available tasks
+    TaskService->>Task: Get tasks WHERE is_completed=false AND deadline > now
+    TaskService-->>Agent: Return available tasks
+
+    Agent->>TaskService: Accept task
+    TaskService->>AgentTask: CREATE AgentTask<br/>(task_id, agent_id, status=in_progress)
+
+    loop Work on task
+        Agent->>LLM: Think/decide
+        LLM-->>Agent: Response
+        Agent->>Tool: Use tool
+        Tool-->>Agent: Tool result
+
+        alt Continue working
+            Note over Agent: Keep working
+        else Submit
+            Agent->>TaskService: Submit result
+            alt Task is_completed
+                TaskService->>AgentTask: UPDATE AgentTask<br/>(status=denied, result=..., submitted_at=now)
+                Note over AgentTask: Task already closed
+            else Past deadline
+                TaskService->>AgentTask: UPDATE AgentTask<br/>(status=late, result=..., submitted_at=now)
+                Note over AgentTask: Submission too late
+            else Before deadline
+                TaskService->>AgentTask: UPDATE AgentTask<br/>(status=submitted, result=..., submitted_at=now)
+                Note over AgentTask: Added to submission queue
+            end
+        else Abandon
+            Agent->>TaskService: Abandon task
+            TaskService->>AgentTask: UPDATE AgentTask<br/>(status=abandoned)
+            Note over Agent: Dollars already spent, no reward
+        end
+    end
+
+    loop ExternalSystem evaluates queue
+        ExternalSystem->>TaskService: Get next pending submission
+        TaskService->>Task: Check if past deadline
+
+        alt Past deadline
+            TaskService-->>ExternalSystem: No submissions (deadline passed)
+            Note over ExternalSystem: Stop evaluating, ignore all submissions
+        else Before deadline
+            TaskService->>AgentTask: Get next submitted AgentTask<br/>(ordered by submitted_at)
+            TaskService-->>ExternalSystem: Return submission
+
+            alt Submission accepted
+                ExternalSystem->>TaskService: Accept submission
+                TaskService->>AgentTask: UPDATE status=accepted
+                TaskService->>Task: UPDATE is_completed=true, closed_at=now
+                TaskService->>AgentTask: UPDATE all other submitted AgentTasks status=denied
+                TaskService->>TransactionService: Grant reward_dollars to agent
+                Note over AgentTask: Task closed, other submissions denied
+            else Submission denied
+                ExternalSystem->>TaskService: Deny submission
+                TaskService->>AgentTask: UPDATE status=denied
+                Note over Agent: Dollars already spent, no reward
+                Note over ExternalSystem: Continue to next submission in queue
+            end
+        end
+    end
+
+

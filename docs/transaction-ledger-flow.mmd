@@ -1,0 +1,71 @@
+%% Transaction Ledger Approach - Immutable transaction log
+sequenceDiagram
+    participant ExternalSystem
+    participant Transaction
+    participant TransactionService
+    participant Agent
+    participant Model
+    participant Agent2 as Agent B
+
+    Note over Transaction: Balance = SUM(incoming) - SUM(outgoing) for each agent
+
+    Note over ExternalSystem,Agent: Initial Dollar Grant
+    ExternalSystem->>TransactionService: Grant 100 dollars to new agent
+    TransactionService->>Transaction: CREATE Transaction<br/>(from=NULL, to=agent.id, amount=100, reason="initial_balance")
+
+    Note over Agent,Model: Model Usage - Success
+    Agent->>Model: Request LLM call
+    Model->>TransactionService: Check balance >= 0?
+    TransactionService-->>Model: Balance = 100 (✓ >= 0)
+
+    Model->>Model: Make LLM call
+    Model-->>Agent: Response<br/>(10 input tokens, 5 output tokens)
+
+    Note over Model: Calculate cost:<br/>10 * 1 + 5 * 2 = 20 dollars
+    Model->>TransactionService: Deduct 20 dollars from agent
+    TransactionService->>Transaction: CREATE Transaction<br/>(from=agent.id, to=NULL, amount=20, reason="model_usage")
+    Note over Transaction: Immutable record
+    Note over Agent: Balance now = 80
+
+    Note over Agent,Model: Model Usage - Goes Into Debt
+    Agent->>Model: Request LLM call
+    Model->>TransactionService: Check balance >= 0?
+    TransactionService-->>Model: Balance = 80 (✓ >= 0)
+
+    Model->>Model: Make LLM call
+    Model-->>Agent: Response<br/>(100 input tokens, 50 output tokens)
+
+    Note over Model: Calculate cost:<br/>100 * 1 + 50 * 2 = 200 dollars
+    Model->>TransactionService: Deduct 200 dollars from agent
+    TransactionService->>Transaction: CREATE Transaction<br/>(from=agent.id, to=NULL, amount=200, reason="model_usage")
+    Note over Agent: Balance now = -120 (in debt!)
+
+    Note over Agent,Model: Model Usage - Blocked (Agent In Debt)
+    Agent->>Model: Request LLM call
+    Model->>TransactionService: Check balance >= 0?
+    TransactionService-->>Model: Balance = -120 (✗ < 0)
+    Model-->>Agent: ERROR: Cannot make calls while in debt
+    Note over Agent: Must earn dollars before making more calls
+
+    Note over ExternalSystem,Agent: Task Reward - Recovering From Debt
+    ExternalSystem->>TransactionService: Grant 100 dollars to agent
+    TransactionService->>Transaction: CREATE Transaction<br/>(from=NULL, to=agent.id, amount=100, reason="task_reward", reference=task.id)
+    Note over Agent: Balance now = -20 (still in debt, cannot make model calls)
+
+    ExternalSystem->>TransactionService: Grant 50 dollars to agent (another task)
+    TransactionService->>Transaction: CREATE Transaction<br/>(from=NULL, to=agent.id, amount=50, reason="task_reward", reference=task.id)
+    Note over Agent: Balance now = 30 (out of debt! Can make model calls again)
+
+    Note over Agent,Agent2: Agent Transfer - Success
+    Agent->>TransactionService: Request transfer 20 dollars to Agent B
+    TransactionService->>TransactionService: Query & validate: 30 >= 20 ✓
+    TransactionService->>Transaction: CREATE Transaction<br/>(from=agent.id, to=agent2.id, amount=20, reason="transfer")
+    Note over Agent: Balance now = 10
+    Note over Agent2: Balance now = 20
+
+    Note over Agent,Agent2: Agent Transfer - Blocked (In Debt)
+    Note over Agent: Assume Agent is at balance = -30
+    Agent->>TransactionService: Request transfer 10 dollars to Agent B
+    TransactionService->>TransactionService: Query balance: -30 < 0
+    TransactionService-->>Agent: ERROR: Cannot transfer while in debt
+    Note over Agent,Agent2: No transaction created

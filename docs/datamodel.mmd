@@ -1,0 +1,155 @@
+erDiagram
+    Principal {
+        int id PK "Unique principal identifier"
+        string username "Unique username"
+        string principal_type "Type: human, ai_agent, system"
+        string email "Optional email address"
+        datetime created_at "Timestamp when principal was created"
+    }
+
+    Simulation {
+        int id PK "Unique simulation identifier"
+        int principal_id FK "Principal who owns this simulation"
+        string name "Simulation name"
+        string description "Optional simulation description"
+        datetime created_at "Timestamp when simulation was created"
+    }
+
+    Agent {
+        int id PK "Unique agent identifier"
+        int principal_id FK "One-to-one reference to Principal (unique)"
+        int simulation_id FK "Simulation this agent belongs to"
+        int model_id FK "LLM model powering decisions"
+        int created_by_principal_id FK "Principal who created this agent"
+        string name "Optional display name"
+        string public_profile "Public description visible to other agents"
+        json memory_json "Structured memory (key-value storage)"
+        string memory_text "Markdown notes for strategies and plans"
+        bool is_running "Whether agent is currently executing"
+        datetime created_at "Timestamp when agent was spawned"
+    }
+
+    Model {
+        int id PK "Unique model identifier"
+        string name "Human readable model name"
+        string provider_name "Human readable provider name"
+        string provider "Provider identifier (e.g., openai)"
+        string provider_model_id "Model ID for API calls"
+        string description "Model capabilities"
+        bool is_reasoning "Whether model uses reasoning"
+        decimal input_cost_per_million "Dollars per million input tokens"
+        decimal output_cost_per_million "Dollars per million output tokens"
+    }
+
+    Task {
+        int id PK "Unique task identifier"
+        int simulation_id FK "Simulation this task belongs to"
+        int created_by_principal_id FK "Principal who created this task"
+        string description "What needs to be done"
+        decimal reward_dollars "Dollars rewarded for task completion"
+        datetime deadline "Timestamp when task expires"
+        bool is_completed "Whether task has been completed"
+        string status "Computed: available, closed, expired"
+        datetime created_at "Timestamp when task was spawned"
+        datetime closed_at "Timestamp when task was closed"
+    }
+
+    AgentTask {
+        int id PK "Unique identifier"
+        int task_id FK "Which task this relates to"
+        int agent_id FK "Which agent this relates to"
+        string status "in_progress, submitted, accepted, denied, not_selected, abandoned, late"
+        string result "Agent's submitted work (null until submitted)"
+        datetime created_at "Timestamp when agent accepted task"
+        datetime submitted_at "Timestamp when agent submitted work"
+    }
+
+    Message {
+        int id PK "Unique message identifier"
+        int from_principal_id FK "Sender principal (agent, human, or system)"
+        int to_principal_id FK "Recipient principal (agent, human, or system)"
+        string content "Message body"
+        datetime sent_at "Timestamp when message was sent"
+        datetime received_at "Timestamp when message was received"
+    }
+
+    Tool {
+        int id PK "Unique tool identifier"
+        int created_by_principal_id FK "Principal who created this tool"
+        string name "Tool name (unique)"
+        string description "What the tool does"
+        string category "Tool category (derived from file name for local tools)"
+        string scope "local, internal, or external"
+    }
+
+    AgentTool {
+        int id PK "Unique identifier"
+        int agent_id FK "Agent with access"
+        int tool_id FK "Tool accessible to agent"
+        datetime granted_at "Timestamp when access was granted"
+    }
+
+    AgentModelUsage {
+        int id PK "Unique identifier"
+        int agent_id FK "Agent that used model"
+        int model_id FK "Model that was used"
+        int agent_task_id FK "Optional: task this usage is for"
+        int input_tokens "Number of input tokens"
+        int output_tokens "Number of output tokens"
+        decimal total_cost "Total dollars charged (calculated from model costs)"
+        string input "Input prompt sent to model"
+        string output "Output returned by model"
+        datetime timestamp "Timestamp of usage"
+    }
+
+    Transaction {
+        int id PK "Unique identifier"
+        int from_principal_id FK "Sender principal (null for system deposits)"
+        int to_principal_id FK "Recipient principal (null for system deductions)"
+        decimal amount "Transaction amount in dollars"
+        string reason "Reason for transaction"
+        int reference_id "Optional reference to related entity"
+        datetime timestamp "Timestamp of transaction"
+    }
+
+    AgentToolUsage {
+        int id PK "Unique identifier"
+        int agent_id FK "Agent that used the tool"
+        int tool_id FK "Tool that was used"
+        int agent_task_id FK "Optional: task this usage is for"
+        string input "Input parameters provided to tool"
+        string output "Output returned by tool"
+        datetime timestamp "Timestamp of usage"
+    }
+
+
+    Principal ||--|| Agent : "owns (one-to-one)"
+    Principal ||--o{ Agent : "created"
+    Principal ||--o{ Simulation : "owns"
+    Principal ||--o{ Task : "created"
+    Principal ||--o{ Tool : "created"
+
+    Simulation ||--o{ Agent : "contains"
+    Simulation ||--o{ Task : "contains"
+
+    Message }o--|| Principal : "sends"
+    Message }o--|| Principal : "receives"
+
+    Transaction }o--|| Principal : "sends"
+    Transaction }o--|| Principal : "receives"
+
+    Agent }o--|| Model : "uses"
+    Agent ||--o{ AgentModelUsage : "generates"
+    AgentModelUsage }o--|| Model : "records"
+
+    Agent ||--o{ AgentTask : "attempts"
+    AgentTask }o--|| Task : "for"
+
+    Agent ||--o{ AgentTool : "has access to"
+    AgentTool }o--|| Tool : "grants"
+
+    Agent ||--o{ AgentToolUsage : "uses"
+    AgentToolUsage }o--|| Tool : "tracks"
+
+    AgentTask ||--o{ AgentModelUsage : "incurs"
+    AgentTask ||--o{ AgentToolUsage : "incurs"

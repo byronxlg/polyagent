@@ -1,0 +1,7 @@
+FROM postgres:16-alpine
+
+ENV POSTGRES_DB=polyagent
+ENV POSTGRES_USER=agent
+ENV POSTGRES_PASSWORD=agent
+
+EXPOSE 5432

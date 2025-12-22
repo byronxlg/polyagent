@@ -1,0 +1,14 @@
+[
+  {
+    "id": "a603702c-1e2f-4324-bd98-3c8e3232b477",
+    "username": "system",
+    "email": null,
+    "principal_type": "system"
+  },
+  {
+    "id": "ebf2cd67-8f45-4594-aff4-5366abde3e3a",
+    "username": "byron",
+    "email": "byron@example.com",
+    "principal_type": "human"
+  }
+]

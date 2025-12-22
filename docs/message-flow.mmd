@@ -1,0 +1,16 @@
+%% Message Flow
+sequenceDiagram
+    participant Agent1 as Agent A
+    participant MessageService
+    participant Message
+    participant Agent2 as Agent B
+
+    Agent1->>MessageService: Send message to Agent B
+    MessageService->>Message: CREATE Message<br/>(from=agent1.id, to=agent2.id, content)
+    Message->>Message: Set sent_at
+    Note over Message: received_at = null
+
+    Agent2->>MessageService: Check inbox
+    MessageService->>Message: Get messages WHERE to=agent2.id AND received_at=null
+    Message->>Message: Set received_at
+    MessageService-->>Agent2: Return messages

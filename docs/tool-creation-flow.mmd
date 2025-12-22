@@ -1,0 +1,42 @@
+sequenceDiagram
+    participant Agent
+    participant ToolService
+    participant Examples as examples/
+    participant FileSystem as custom/
+    participant Database
+
+    Agent->>ToolService: Get tool template/examples
+    ToolService->>Examples: Read template.py or example files
+    Examples-->>ToolService: Template/example code
+    ToolService-->>Agent: Template/example code
+
+    Note over Agent: Agent writes tool code<br/>based on template/examples
+
+    Agent->>ToolService: Create custom tool
+
+    Note over ToolService: Sanitize name<br/>Validate code syntax<br/>Check create_tools() exists
+
+    alt Validation fails
+        ToolService-->>Agent: Error: Invalid name/code
+    end
+
+    ToolService->>FileSystem: Write {category}_tool.py
+
+    alt File already exists
+        ToolService-->>Agent: Error: Tool already exists
+    end
+
+    Note over ToolService: Load module<br/>Call create_tools(0)
+
+    alt Module load fails
+        ToolService->>FileSystem: Delete file
+        ToolService-->>Agent: Error: Failed to load
+    end
+
+    ToolService->>Database: Register Tool records<br/>(category, scope=local,<br/>is_system=False, created_by_agent_id)
+    Database-->>ToolService: Tools registered
+
+    ToolService->>Database: Grant to creating agent<br/>(AgentTool records)
+    Database-->>ToolService: Access granted
+
+    ToolService-->>Agent: Success: Tool created

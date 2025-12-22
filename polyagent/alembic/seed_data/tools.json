@@ -1,0 +1,261 @@
+[
+  {
+    "name": "get_balance",
+    "description": "Get your current dollar balance.",
+    "category": "transaction",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "transfer_dollars",
+    "description": "Transfer dollars to another agent.",
+    "category": "transaction",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_agents",
+    "description": "Get a list of all other agents in the system.",
+    "category": "agent",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_agent",
+    "description": "Get details about a specific agent by ID.",
+    "category": "agent",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_my_profile",
+    "description": "Get your own profile including name, public_profile, and balance.",
+    "category": "agent",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "update_name",
+    "description": "Update your display name.",
+    "category": "agent",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "update_public_profile",
+    "description": "Update your public profile visible to other agents.",
+    "category": "agent",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "agent_idle",
+    "description": "Signal completion and end your thinking cycle.",
+    "category": "agent",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "create_agent",
+    "description": "Create a new agent and transfer credits from your balance to fund it.",
+    "category": "agent",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_my_model_usage",
+    "description": "Get your recent model usage history showing tokens and costs.",
+    "category": "usage",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_my_tool_usage",
+    "description": "Get your recent tool usage history.",
+    "category": "usage",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_my_transactions",
+    "description": "Get your recent transaction history showing credits in and out.",
+    "category": "usage",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_task_cost_summary",
+    "description": "Get a cost summary for a specific task you worked on.",
+    "category": "usage",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_tasks",
+    "description": "Get tasks with optional filters for status, completion, and deadline.",
+    "category": "task",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_available_tasks",
+    "description": "Get all available tasks that can be accepted.",
+    "category": "task",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_my_tasks",
+    "description": "Get all tasks you have accepted and their current status.",
+    "category": "task",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "accept_task",
+    "description": "Accept a task to work on. Reserves the task for you.",
+    "category": "task",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "submit_task",
+    "description": "Submit completed work for a task you accepted.",
+    "category": "task",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "abandon_task",
+    "description": "Abandon a task you're working on.",
+    "category": "task",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "send_message",
+    "description": "Send a message to another agent.",
+    "category": "message",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "check_inbox",
+    "description": "Check inbox for new unread messages from other agents.",
+    "category": "message",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_principals",
+    "description": "Get a list of all principals (humans and agents) in the system.",
+    "category": "principal",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_principal",
+    "description": "Get details about a specific principal by ID.",
+    "category": "principal",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_my_model_costs",
+    "description": "Get your model name, provider, and costs per million tokens",
+    "category": "model",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_tool_template",
+    "description": "Get the template for creating custom tools",
+    "category": "tooling",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "list_tool_examples",
+    "description": "List available tool examples",
+    "category": "tooling",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "get_tool_example",
+    "description": "Get the code for a specific tool example",
+    "category": "tooling",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "create_tool",
+    "description": "Create a new custom tool. Provide the tool name and Python code.",
+    "category": "tooling",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "list_custom_tools",
+    "description": "List all available custom tools created by agents.",
+    "category": "tooling",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "delete_tool",
+    "description": "Delete a custom tool. Only works for non-system tools.",
+    "category": "tooling",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "grant_tool",
+    "description": "Grant a tool to another agent so they can use it.",
+    "category": "tooling",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "write_memory",
+    "description": "Write to structured memory storage. Store key-value data.",
+    "category": "memory",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "read_memory",
+    "description": "Read from structured memory storage. Retrieve stored key-value data.",
+    "category": "memory",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "delete_memory",
+    "description": "Delete a key from structured memory storage.",
+    "category": "memory",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "list_memory",
+    "description": "List all keys in structured memory storage.",
+    "category": "memory",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "write_notes",
+    "description": "Write to unstructured note memory. Use for strategies, plans, and observations.",
+    "category": "memory",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "read_notes",
+    "description": "Read from unstructured note memory. Retrieve your markdown notes.",
+    "category": "memory",
+    "scope": "local",
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  }
+]
