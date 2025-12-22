@@ -57,6 +57,40 @@ For detailed information specific to each part of the project, see:
 - **Clarity**: Write in clear, direct language without unnecessary embellishment
 - **Review First**: When asked to review or analyze, do that first and report findings before making changes
 
+## Git Workflow
+
+**Always use feature branches for changes. Never commit directly to main.**
+
+### Making Changes
+
+1. **Create a feature branch** before making any edits:
+   ```bash
+   git checkout -b feature/<short-description>
+   # or for fixes:
+   git checkout -b fix/<short-description>
+   ```
+
+2. **Make commits** on the feature branch with clear messages
+
+3. **Push and create a PR** when ready:
+   ```bash
+   git push -u origin <branch-name>
+   gh pr create --fill
+   ```
+
+### Branch Naming
+
+- `feature/<description>` - New features or enhancements
+- `fix/<description>` - Bug fixes
+- `docs/<description>` - Documentation changes
+- `refactor/<description>` - Code refactoring
+
+### PR Guidelines
+
+- Use `gh pr create` to open pull requests
+- PRs should have a clear title and description
+- Link to any related issues if applicable
+
 ## High-Level Architecture
 
 ### Backend (polyagent/)
