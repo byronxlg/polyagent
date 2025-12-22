@@ -61,22 +61,44 @@ For detailed information specific to each part of the project, see:
 
 **Always use feature branches for changes. Never commit directly to main.**
 
-### Making Changes
+### Making Changes (Worktrees)
 
-1. **Create a feature branch** before making any edits:
+Use git worktrees for isolated feature development. This allows parallel Claude sessions without conflicts.
+
+1. **Create a worktree** for your feature:
    ```bash
-   git checkout -b feature/<short-description>
-   # or for fixes:
-   git checkout -b fix/<short-description>
+   # From the main repo directory
+   git worktree add ../polyagent-<short-description> -b feature/<short-description>
+   cd ../polyagent-<short-description>
    ```
 
-2. **Make commits** on the feature branch with clear messages
+2. **Work in the worktree** - make changes and commits
 
 3. **Push and create a PR** when ready:
    ```bash
-   git push -u origin <branch-name>
+   git push -u origin feature/<short-description>
    gh pr create --fill
    ```
+
+4. **Cleanup** after PR is merged:
+   ```bash
+   cd ../polyagent  # Return to main repo
+   git worktree remove ../polyagent-<short-description>
+   git branch -d feature/<short-description>
+   ```
+
+### Quick Reference
+
+```bash
+# List worktrees
+git worktree list
+
+# Create worktree with new branch
+git worktree add ../polyagent-foo -b feature/foo
+
+# Remove worktree after merge
+git worktree remove ../polyagent-foo
+```
 
 ### Branch Naming
 
