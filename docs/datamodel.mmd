@@ -1,6 +1,6 @@
 erDiagram
     Principal {
-        int id PK "Unique principal identifier"
+        uuid id PK "Unique principal identifier"
         string username "Unique username"
         string principal_type "Type: human, ai_agent, system"
         string email "Optional email address"
@@ -8,19 +8,19 @@ erDiagram
     }
 
     Simulation {
-        int id PK "Unique simulation identifier"
-        int principal_id FK "Principal who owns this simulation"
+        uuid id PK "Unique simulation identifier"
+        uuid principal_id FK "Principal who owns this simulation"
         string name "Simulation name"
         string description "Optional simulation description"
         datetime created_at "Timestamp when simulation was created"
     }
 
     Agent {
-        int id PK "Unique agent identifier"
-        int principal_id FK "One-to-one reference to Principal (unique)"
-        int simulation_id FK "Simulation this agent belongs to"
-        int model_id FK "LLM model powering decisions"
-        int created_by_principal_id FK "Principal who created this agent"
+        uuid id PK "Unique agent identifier"
+        uuid principal_id FK "One-to-one reference to Principal (unique)"
+        uuid simulation_id FK "Simulation this agent belongs to"
+        uuid model_id FK "LLM model powering decisions"
+        uuid created_by_principal_id FK "Principal who created this agent"
         string name "Optional display name"
         string public_profile "Public description visible to other agents"
         json memory_json "Structured memory (key-value storage)"
@@ -30,7 +30,7 @@ erDiagram
     }
 
     Model {
-        int id PK "Unique model identifier"
+        uuid id PK "Unique model identifier"
         string name "Human readable model name"
         string provider_name "Human readable provider name"
         string provider "Provider identifier (e.g., openai)"
@@ -42,9 +42,9 @@ erDiagram
     }
 
     Task {
-        int id PK "Unique task identifier"
-        int simulation_id FK "Simulation this task belongs to"
-        int created_by_principal_id FK "Principal who created this task"
+        uuid id PK "Unique task identifier"
+        uuid simulation_id FK "Simulation this task belongs to"
+        uuid created_by_principal_id FK "Principal who created this task"
         string description "What needs to be done"
         decimal reward_dollars "Dollars rewarded for task completion"
         datetime deadline "Timestamp when task expires"
@@ -55,9 +55,9 @@ erDiagram
     }
 
     AgentTask {
-        int id PK "Unique identifier"
-        int task_id FK "Which task this relates to"
-        int agent_id FK "Which agent this relates to"
+        uuid id PK "Unique identifier"
+        uuid task_id FK "Which task this relates to"
+        uuid agent_id FK "Which agent this relates to"
         string status "in_progress, submitted, accepted, denied, not_selected, abandoned, late"
         string result "Agent's submitted work (null until submitted)"
         datetime created_at "Timestamp when agent accepted task"
@@ -65,17 +65,17 @@ erDiagram
     }
 
     Message {
-        int id PK "Unique message identifier"
-        int from_principal_id FK "Sender principal (agent, human, or system)"
-        int to_principal_id FK "Recipient principal (agent, human, or system)"
+        uuid id PK "Unique message identifier"
+        uuid from_principal_id FK "Sender principal (agent, human, or system)"
+        uuid to_principal_id FK "Recipient principal (agent, human, or system)"
         string content "Message body"
         datetime sent_at "Timestamp when message was sent"
         datetime received_at "Timestamp when message was received"
     }
 
     Tool {
-        int id PK "Unique tool identifier"
-        int created_by_principal_id FK "Principal who created this tool"
+        uuid id PK "Unique tool identifier"
+        uuid created_by_principal_id FK "Principal who created this tool"
         string name "Tool name (unique)"
         string description "What the tool does"
         string category "Tool category (derived from file name for local tools)"
@@ -83,17 +83,17 @@ erDiagram
     }
 
     AgentTool {
-        int id PK "Unique identifier"
-        int agent_id FK "Agent with access"
-        int tool_id FK "Tool accessible to agent"
+        uuid id PK "Unique identifier"
+        uuid agent_id FK "Agent with access"
+        uuid tool_id FK "Tool accessible to agent"
         datetime granted_at "Timestamp when access was granted"
     }
 
     AgentModelUsage {
-        int id PK "Unique identifier"
-        int agent_id FK "Agent that used model"
-        int model_id FK "Model that was used"
-        int agent_task_id FK "Optional: task this usage is for"
+        uuid id PK "Unique identifier"
+        uuid agent_id FK "Agent that used model"
+        uuid model_id FK "Model that was used"
+        uuid agent_task_id FK "Optional: task this usage is for"
         int input_tokens "Number of input tokens"
         int output_tokens "Number of output tokens"
         decimal total_cost "Total dollars charged (calculated from model costs)"
@@ -103,20 +103,20 @@ erDiagram
     }
 
     Transaction {
-        int id PK "Unique identifier"
-        int from_principal_id FK "Sender principal (null for system deposits)"
-        int to_principal_id FK "Recipient principal (null for system deductions)"
+        uuid id PK "Unique identifier"
+        uuid from_principal_id FK "Sender principal (null for system deposits)"
+        uuid to_principal_id FK "Recipient principal (null for system deductions)"
         decimal amount "Transaction amount in dollars"
         string reason "Reason for transaction"
-        int reference_id "Optional reference to related entity"
+        uuid reference_id "Optional reference to related entity"
         datetime timestamp "Timestamp of transaction"
     }
 
     AgentToolUsage {
-        int id PK "Unique identifier"
-        int agent_id FK "Agent that used the tool"
-        int tool_id FK "Tool that was used"
-        int agent_task_id FK "Optional: task this usage is for"
+        uuid id PK "Unique identifier"
+        uuid agent_id FK "Agent that used the tool"
+        uuid tool_id FK "Tool that was used"
+        uuid agent_task_id FK "Optional: task this usage is for"
         string input "Input parameters provided to tool"
         string output "Output returned by tool"
         datetime timestamp "Timestamp of usage"

@@ -61,7 +61,7 @@ See `docs/datamodel.mmd` for the complete entity-relationship diagram.
 
 ### Core Tables
 
-**users** - User accounts (human, agent, system)
+**principals** - Identity accounts (human, ai_agent, system)
 **simulations** - Simulation environments
 **models** - LLM model definitions with costs
 **agents** - Agent instances
@@ -76,7 +76,7 @@ See `docs/datamodel.mmd` for the complete entity-relationship diagram.
 
 ### Key Relationships
 
-- Agent → User (one-to-one)
+- Agent → Principal (one-to-one)
 - Agent → Model (many-to-one)
 - Agent → Simulation (many-to-one)
 - AgentTask → Task (many-to-one)

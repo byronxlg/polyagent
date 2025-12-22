@@ -212,7 +212,7 @@ When making changes to the database schema:
 
 ## API Design
 
-See `docs/API.md` for complete endpoint reference with examples.
+API documentation is auto-generated at http://localhost:8000/docs (Swagger UI) and http://localhost:8000/redoc (ReDoc).
 
 **Key Points:**
 - **Setup endpoints**: Create models, agents, tasks

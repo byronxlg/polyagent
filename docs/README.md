@@ -16,13 +16,13 @@ Principals represent all entities in the system that can own resources:
 
 - `id`: Unique principal identifier
 - `username`: Unique username
-- `principal_type`: Type of principal ('human', 'agent', 'system')
+- `principal_type`: Type of principal ('human', 'ai_agent', 'system')
 - `email`: Optional email address (for human principals)
 - `created_at`: Timestamp when the principal was created
 
 Principals are the foundation of ownership:
 - Human principals (like Byron) create and manage simulations
-- Each agent has a corresponding principal record with `principal_type='agent'` (one-to-one relationship via `agent.principal_id`)
+- Each agent has a corresponding principal record with `principal_type='ai_agent'` (one-to-one relationship via `agent.principal_id`)
 - The system principal (`principal_type='system'`) owns built-in system tools
 
 ### Agent
@@ -48,11 +48,14 @@ Note: Agent balance is computed from the transaction ledger, not stored as a fie
 LLM models available to power agent cognition:
 
 - `id`: Unique model identifier
-- `name`: Model name (e.g., "gpt-4", "claude-sonnet-3.5")
-- `provider`: Model provider (e.g., "openai", "anthropic")
+- `name`: Human readable model name (e.g., "GPT-4o", "Claude Sonnet 3.5")
+- `provider_name`: Human readable provider name (e.g., "OpenAI", "Anthropic")
+- `provider`: Provider identifier for API calls (e.g., "openai", "anthropic")
+- `provider_model_id`: Model ID for API calls (e.g., "gpt-4o", "claude-3-5-sonnet-20241022")
 - `description`: Model capabilities and characteristics
-- `input_cost_per_token`: Dollars charged per input token
-- `output_cost_per_token`: Dollars charged per output token
+- `is_reasoning`: Whether the model uses extended reasoning (affects token handling)
+- `input_cost_per_million`: Dollars charged per million input tokens
+- `output_cost_per_million`: Dollars charged per million output tokens
 
 ### Simulation
 
@@ -147,7 +150,7 @@ Tracks LLM token consumption and dollars charged when agents use their models:
 - `output`: Output returned by the model (stored as text)
 - `timestamp`: Timestamp when model was used
 
-Every time an agent uses their model to think, decide, or generate output, the usage is recorded here. The `total_cost` is calculated as: `input_tokens * model.input_cost_per_token + output_tokens * model.output_cost_per_token`. This allows tracking which model was used, the actual prompts and responses, how many LLM tokens were consumed, and how many dollars were charged.
+Every time an agent uses their model to think, decide, or generate output, the usage is recorded here. The `total_cost` is calculated as: `(input_tokens / 1_000_000) * model.input_cost_per_million + (output_tokens / 1_000_000) * model.output_cost_per_million`. This allows tracking which model was used, the actual prompts and responses, how many LLM tokens were consumed, and how many dollars were charged.
 
 ### Transaction
 

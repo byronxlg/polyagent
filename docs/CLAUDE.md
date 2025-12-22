@@ -12,13 +12,6 @@ For general project information, see [../CLAUDE.md](../CLAUDE.md)
 - How the system works end-to-end
 - Target audience: Developers learning the system
 
-### API.md
-- **Complete API endpoint reference with examples**
-- Request/response schemas for each endpoint
-- Example curl commands
-- Authentication requirements
-- Target audience: API consumers, frontend developers
-
 ### datamodel.mmd
 - **Mermaid entity-relationship diagram**
 - Source of truth for database schema
@@ -30,9 +23,10 @@ For general project information, see [../CLAUDE.md](../CLAUDE.md)
 ### When to Update Documentation
 
 - **Always before schema changes**: Update `datamodel.mmd` first
-- **After adding API endpoints**: Add to `API.md` with examples
 - **After major features**: Update `README.md` architecture section
 - **After changing workflows**: Update relevant CLAUDE.md files
+
+Note: API documentation is auto-generated at http://localhost:8000/docs (Swagger UI) and http://localhost:8000/redoc (ReDoc).
 
 ### Updating the Data Model Diagram
 
@@ -56,50 +50,6 @@ When adding or modifying database tables:
    - Update `src/models.py` to match diagram
    - Create Alembic migration
    - Apply to database
-
-### Updating API Documentation
-
-When adding or modifying API endpoints:
-
-1. **Document in `API.md`**
-   ```markdown
-   ## Endpoint Name
-
-   **Method:** `POST /path`
-
-   **Description:** What this endpoint does
-
-   **Request:**
-   ```json
-   {
-     "field": "value"
-   }
-   ```
-
-   **Response:**
-   ```json
-   {
-     "result": "data"
-   }
-   ```
-
-   **Example:**
-   ```bash
-   curl -X POST http://localhost:8000/path \
-     -H "Content-Type: application/json" \
-     -d '{"field": "value"}'
-   ```
-   ```
-
-2. **Include all response codes**
-   - 200 OK: Success
-   - 400 Bad Request: Validation error
-   - 404 Not Found: Resource not found
-   - 500 Internal Server Error: Server error
-
-3. **Add examples using real data**
-   - Show actual request/response payloads
-   - Include edge cases if relevant
 
 ## Documentation Standards
 
@@ -136,13 +86,6 @@ erDiagram
 - `}o--||` : Many-to-one
 - `}o--o{` : Many-to-many
 
-### API Examples
-
-- Use realistic data in examples
-- Show both request and response
-- Include curl commands for testing
-- Document error responses
-
 ### Code Comments
 
 In documentation code examples:
@@ -158,14 +101,6 @@ In documentation code examples:
 
 1. Add to `datamodel.mmd` with all fields and relationships
 2. Add section in `README.md` explaining the entity's purpose
-3. If exposed via API, add endpoints to `API.md`
-
-### Deprecating an Endpoint
-
-1. Mark as deprecated in `API.md`
-2. Document the replacement endpoint
-3. Add timeline for removal
-4. Update examples to use new endpoint
 
 ### Major Architecture Changes
 
@@ -203,15 +138,13 @@ Before committing documentation changes:
 - [ ] Spelling and grammar checked
 - [ ] Examples use realistic data
 - [ ] New features are documented
-- [ ] Deprecated features are marked
-- [ ] API responses match actual output
 - [ ] Timestamps in examples are formatted correctly (ISO 8601)
 
 ## Best Practices
 
 - **Keep docs in sync with code**: Update docs in the same PR as code changes
 - **Use examples liberally**: Show, don't just tell
-- **Write for your audience**: Backend docs for backend devs, API docs for API consumers
+- **Write for your audience**: Backend docs for backend devs, architecture docs for system understanding
 - **Link between docs**: Help readers find related information
 - **Version control**: All docs in git, reviewed like code
 - **Consistency**: Follow existing patterns and formatting

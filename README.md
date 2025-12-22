@@ -1,39 +1,63 @@
 # PolyAgent
 
-A multi-agent LLM simulation with a credit-based economy. Autonomous agents powered by LLMs compete for tasks, consume credits for each thought/action, and must earn credits by completing tasks to survive.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Node.js 18+](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-## Overview
+**A multi-agent LLM simulation where autonomous agents compete for survival in a credit-based economy.**
 
-PolyAgent creates a minimal survival environment where LLM-powered agents must:
+Agents powered by LLMs must earn credits by completing tasks to survive. Every thought costs money. Run out of credits and you can no longer think. With no safety nets and limited resources, agents must strategize, compete, and potentially cooperate to stay alive.
 
-- **Earn to survive**: Every thought costs credits (based on token usage)
-- **Compete for tasks**: Multiple agents can work on the same task; first accepted submission wins
-- **Strategize**: Balance cost vs reward, choose when to think, and optimize efficiency
-- **Communicate**: Send messages to other agents for potential cooperation
+[View on GitHub](https://github.com/byronxlg/polyagent)
 
-With no government, no institutions, and limited resources, agents must adapt their strategies to survive.
+---
 
-## Architecture
+## Why PolyAgent?
 
-See [docs/README.md](docs/README.md) for complete data model and architecture documentation.
+PolyAgent explores what happens when you give LLM agents real constraints:
+
+- **Scarcity creates strategy** - When thinking costs money, agents must decide what's worth thinking about
+- **Competition drives efficiency** - Multiple agents can work on the same task, but only the first accepted submission wins
+- **Emergent behavior** - No hardcoded strategies; agents decide their own actions based on their situation
+- **Full observability** - Every thought, tool use, and credit transaction is logged and traceable
+
+This is a sandbox for studying autonomous agent behavior under economic pressure.
+
+---
+
+## How It Works
 
 ```
-polyagent/
-├── polyagent/              # Python FastAPI backend
-│   ├── src/                # Source code
-│   ├── alembic/            # Database migrations and seed data
-│   └── CLAUDE.md           # Backend development guide
-├── ui/                     # React TypeScript frontend
-│   ├── src/                # Frontend source
-│   └── CLAUDE.md           # Frontend development guide
-├── database/               # Database configuration
-│   ├── docker-compose.yml  # PostgreSQL setup
-│   └── CLAUDE.md           # Database guide
-└── docs/                   # Documentation
-    ├── README.md           # Data model and architecture
-    ├── API.md              # API endpoint reference
-    └── CLAUDE.md           # Documentation guide
+                    +------------------+
+                    |   Human Owner    |
+                    |   (Principal)    |
+                    +--------+---------+
+                             |
+              creates simulations & tasks
+                             |
+                             v
++------------------+    +------------------+    +------------------+
+|     Agent 1      |    |     Agent 2      |    |     Agent 3      |
+|  Balance: $0.08  |    |  Balance: $0.12  |    |  Balance: $0.00  |
+|  Model: GPT-4o   |    |  Model: Claude   |    |  (in debt)       |
++--------+---------+    +--------+---------+    +------------------+
+         |                       |
+         |   compete for tasks   |
+         v                       v
+    +-----------------------------+
+    |          Task Pool          |
+    |  "Write a haiku" - $0.05    |
+    |  "Solve puzzle" - $0.10     |
+    +-----------------------------+
 ```
+
+1. **Agents start with credits** - Initial balance funds their thinking
+2. **Every LLM call costs credits** - Token usage is tracked and deducted in real-time
+3. **Tasks offer rewards** - Complete a task, earn the reward (minus what you spent thinking)
+4. **Debt blocks thinking** - Go negative and you're frozen until a reward saves you
+5. **First submission wins** - Multiple agents can work on the same task, but only one gets paid
+
+---
 
 ## Quick Start
 
@@ -44,38 +68,33 @@ polyagent/
 - Docker (for PostgreSQL)
 - [uv](https://docs.astral.sh/uv/) package manager
 
-### 1. Start the Database
+### 1. Clone and Setup
 
 ```bash
-cd database
+git clone https://github.com/byronxlg/polyagent.git
+cd polyagent
+```
+
+### 2. Start the Database
+
+```bash
 docker-compose up -d
 ```
 
-### 2. Set Up the Backend
+### 3. Setup the Backend
 
 ```bash
 cd polyagent
 uv sync
 cp .env.example .env
-# Edit .env with your LLM API keys (e.g., OPENAI_API_KEY)
-```
-
-### 3. Initialize the Database
-
-```bash
-# Run migrations to create tables and seed initial data
+# Edit .env with your LLM API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
 uv run alembic upgrade head
-```
-
-### 4. Start the API Server
-
-```bash
 uv run fastapi dev src/api.py
 ```
 
-API available at http://localhost:8000 with interactive docs at http://localhost:8000/docs
+API available at http://localhost:8000 (interactive docs at http://localhost:8000/docs)
 
-### 5. Set Up the Frontend (Optional)
+### 4. Setup the Frontend (Optional)
 
 ```bash
 cd ui
@@ -85,76 +104,106 @@ npm run dev
 
 Frontend available at http://localhost:5173
 
+---
+
 ## Core Concepts
 
 ### Credit Economy
 
-- **Credits**: Agents manage credit balances tracked via an immutable transaction ledger
-- **Costs**: Every LLM call costs credits based on token usage and model rates
-- **Rewards**: Completing tasks earns the full reward amount
-- **Profit**: Net profit = reward - credits spent during work
-- **Debt**: Agents can go into debt on a single call but cannot think while in debt
+Credits are the lifeblood of the simulation:
+
+| Concept | Description |
+|---------|-------------|
+| **Balance** | Computed from immutable transaction ledger (not a simple field) |
+| **Costs** | Every LLM call costs credits based on token usage and model rates |
+| **Rewards** | Completing tasks earns the full reward amount |
+| **Profit** | Net profit = reward - credits spent during work |
+| **Debt** | Agents can go negative on one call but cannot think while in debt |
 
 ### Agent Autonomy
 
 Agents are fully autonomous. When triggered via `/agents/{id}/tick`:
 
 1. Agent checks its balance
-2. If not in debt, agent calls its LLM with a system prompt
+2. If solvent, agent calls its LLM with a system prompt containing its situation
 3. LLM decides what tools to use (get tasks, accept task, submit work, etc.)
 4. Token usage is tracked and credits are deducted
 5. Process continues until the agent decides to stop
 
-See [polyagent/CLAUDE.md](polyagent/CLAUDE.md) for agent execution details.
-
 ### Available Tools
 
-Agents have access to these system tools (auto-granted on creation):
+Agents have access to system tools for interacting with their environment:
 
-| Category        | Tools                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------ |
-| **Task**        | `get_tasks`, `get_available_tasks`, `get_my_tasks`, `accept_task`, `submit_task`, `abandon_task` |
-| **Transaction** | `get_balance`, `transfer_credits`                                                                |
-| **Message**     | `send_message`, `check_inbox`                                                                    |
-| **Memory**      | `read_memory`, `write_memory`, `delete_memory`                                                   |
-| **Model**       | `get_my_model_costs`                                                                             |
+| Category | Tools |
+|----------|-------|
+| **Task** | `get_tasks`, `get_available_tasks`, `get_my_tasks`, `accept_task`, `submit_task`, `abandon_task` |
+| **Credits** | `get_balance`, `transfer_credits` |
+| **Messages** | `send_message`, `check_inbox` |
+| **Memory** | `read_memory`, `write_memory`, `delete_memory` |
+| **Info** | `get_my_model_costs`, `get_agents` |
 
-See [polyagent/CLAUDE.md](polyagent/CLAUDE.md#creating-custom-tools-agent-created) for creating custom tools.
+Agents can also create custom tools to extend their capabilities.
 
-## API Usage
+---
 
-See [docs/API.md](docs/API.md) for complete API documentation with examples.
+## Architecture
 
-### Quick Examples
-
-```bash
-# Create a model
-POST /models {"name": "gpt-4o-mini", "provider": "openai", ...}
-
-# Create an agent
-POST /agents {"model_id": 1, "initial_balance": "0.10"}
-
-# Create a task
-POST /tasks {"description": "...", "reward_dollars": "0.05", "deadline": "..."}
-
-# Trigger agent to think
-POST /agents/1/tick
-
-# View agent balance
-GET /agents/1/balance
-
-# List all tasks
-GET /tasks
 ```
+polyagent/
+├── polyagent/              # Python FastAPI backend
+│   ├── src/                # Source code
+│   │   ├── api.py          # REST API endpoints
+│   │   ├── models.py       # SQLAlchemy ORM models
+│   │   ├── schemas.py      # Pydantic request/response schemas
+│   │   ├── services/       # Business logic layer
+│   │   └── agent/          # LangGraph-based agent execution
+│   ├── alembic/            # Database migrations
+│   └── tests/              # Test suite
+├── ui/                     # React TypeScript frontend
+│   └── src/                # Vite + Tailwind CSS + Radix UI
+├── database/               # PostgreSQL Docker setup
+└── docs/                   # Architecture documentation
+```
+
+### Key Design Decisions
+
+- **Immutable transaction ledger** - All credit movements are append-only for auditability
+- **Principal-based identity** - Humans, agents, and system share a unified identity model
+- **Service layer pattern** - Business logic is encapsulated, agents can't directly manipulate data
+- **LangGraph agents** - Flexible ReAct-style agents with tool binding
+
+See [docs/README.md](docs/README.md) for the complete data model and architecture documentation.
+
+---
 
 ## Development
 
-See subdirectory CLAUDE.md files for detailed development guides:
+Each subdirectory has its own CLAUDE.md with detailed development guides:
 
-- [polyagent/CLAUDE.md](polyagent/CLAUDE.md) - Backend development
-- [ui/CLAUDE.md](ui/CLAUDE.md) - Frontend development
-- [database/CLAUDE.md](database/CLAUDE.md) - Database management
-- [docs/CLAUDE.md](docs/CLAUDE.md) - Documentation standards
+| Guide | Description |
+|-------|-------------|
+| [polyagent/CLAUDE.md](polyagent/CLAUDE.md) | Backend: API, services, agent system, migrations |
+| [ui/CLAUDE.md](ui/CLAUDE.md) | Frontend: React components, styling, API integration |
+| [database/CLAUDE.md](database/CLAUDE.md) | Database: Schema, PostgreSQL, queries |
+| [docs/CLAUDE.md](docs/CLAUDE.md) | Documentation standards |
+
+### Common Commands
+
+```bash
+# Backend
+cd polyagent
+uv run fastapi dev src/api.py    # Run API server
+uv run pytest                     # Run tests
+uv run ruff check src/            # Lint code
+
+# Frontend
+cd ui
+npm run dev                       # Run dev server
+npm run build                     # Production build
+npm run lint                      # Lint code
+```
+
+---
 
 ## License
 
