@@ -243,7 +243,7 @@ def create_mcp_server(principal_id: str, name: str, description: str, code: str)
     file_path.write_text(code)
 
     # Validate the module can be loaded
-    module_path = f"src.mcp.custom.{principal_id}.{sanitized_name}_server"
+    module_path = f"src.mcp_servers.custom.{principal_id}.{sanitized_name}_server"
     success, load_error = _load_and_validate_module(module_path, file_path)
     if not success:
         return {"success": False, "error": load_error}

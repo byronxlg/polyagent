@@ -67,25 +67,14 @@ def _serialize_agent_task(at: AgentTask) -> dict:
     }
 
 
-@mcp.tool()
-def get_tasks(
-    principal_id: str,
+def _get_tasks_impl(
     status: str | None = None,
     is_completed: bool | None = None,
     has_deadline_passed: bool | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> dict:
-    """Get tasks with optional filters for status, completion, and deadline.
-
-    Args:
-        principal_id: Your principal ID (injected by agent)
-        status: Filter by status (available, closed, expired)
-        is_completed: Filter by completion status
-        has_deadline_passed: Filter by whether deadline has passed
-        limit: Maximum number of tasks to return
-        offset: Number of tasks to skip
-    """
+    """Internal implementation for getting tasks with filters."""
     service = TaskService()
     tasks = service.get_tasks(
         status=status,
@@ -109,13 +98,35 @@ def get_tasks(
 
 
 @mcp.tool()
+def get_tasks(
+    principal_id: str,
+    status: str | None = None,
+    is_completed: bool | None = None,
+    has_deadline_passed: bool | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict:
+    """Get tasks with optional filters for status, completion, and deadline.
+
+    Args:
+        principal_id: Your principal ID (injected by agent)
+        status: Filter by status (available, closed, expired)
+        is_completed: Filter by completion status
+        has_deadline_passed: Filter by whether deadline has passed
+        limit: Maximum number of tasks to return
+        offset: Number of tasks to skip
+    """
+    return _get_tasks_impl(status, is_completed, has_deadline_passed, limit, offset)
+
+
+@mcp.tool()
 def get_available_tasks(principal_id: str) -> dict:
     """Get all available tasks that can be accepted.
 
     Args:
         principal_id: Your principal ID (injected by agent)
     """
-    return get_tasks(principal_id, status="available")
+    return _get_tasks_impl(status="available")
 
 
 @mcp.tool()

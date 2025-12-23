@@ -20,7 +20,6 @@ from typing import Any, Literal
 from uuid import UUID
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
-from langchain_core.tools import tool as tool_decorator
 from langchain_litellm import ChatLiteLLM
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
@@ -37,7 +36,7 @@ from src.agent.middleware import after_agent, before_agent
 from src.agent.state import AgentState
 from src.database import SessionLocal
 from src.models import Agent as AgentModel
-from src.models import AgentModelUsage, AgentToolUsage, Model
+from src.models import AgentModelUsage, Model
 from src.services.server_service import ServerService
 from src.services.transaction_service import TransactionService
 
@@ -132,22 +131,20 @@ class Agent:
             return
 
         self._mcp_client = MultiServerMCPClient(server_configs)
-        raw_tools = await self._mcp_client.get_tools()
+        self._tools = await self._mcp_client.get_tools()
 
-        # Wrap tools to track usage and inject principal_id
-        self._tools = [self._wrap_tool_for_tracking(tool) for tool in raw_tools]
         logger.info(
             f"Agent {self.agent_id} loaded {len(self._tools)} tools from {len(server_configs)} MCP servers"
         )
 
     async def _close_mcp_client(self) -> None:
-        """Close MCP client connections."""
-        if self._mcp_client is not None:
-            try:
-                await self._mcp_client.close()
-            except OSError as e:
-                logger.warning(f"Error closing MCP client: {e}")
-            self._mcp_client = None
+        """Clean up MCP client reference.
+
+        Note: MultiServerMCPClient manages subprocess lifecycle internally.
+        We just clear our reference to allow garbage collection.
+        """
+        self._mcp_client = None
+        self._tools = None
 
     def get_balance(self) -> Decimal:
         return self.transaction_service.get_balance(self.agent_id)
@@ -180,7 +177,8 @@ class Agent:
         before_agent(self.agent_id)
         final_message_for_memory = None
         try:
-            response = self.graph.invoke(
+            # Use ainvoke for async tool execution (MCP tools require async)
+            response = await self.graph.ainvoke(
                 {
                     "messages": [SystemMessage(content=self.system_prompt)],
                     "current_agent_task_id": None,
@@ -440,66 +438,12 @@ class Agent:
         return {"messages": [response]}
 
     def _create_tool_node(self) -> ToolNode:
-        """Create a ToolNode with tracked tools."""
-        return ToolNode(self._tools)
+        """Create a ToolNode with loaded MCP tools.
 
-    def _wrap_tool_for_tracking(self, tool):  # noqa: ANN001, ANN202
-        """Wrap a tool to track its usage in the database.
-
-        Also injects principal_id into tool kwargs since MCP tools expect it.
+        Note: Tool usage tracking is handled by the middleware in middleware.py
+        which records all tool invocations with their inputs and outputs.
         """
-        original_func = tool.func
-
-        def tracked_wrapper(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-            # Inject principal_id if not provided
-            if "principal_id" not in kwargs:
-                kwargs["principal_id"] = self.principal_id
-
-            tool_input = str(kwargs) if kwargs else str(args)
-
-            # Execute original tool
-            result = original_func(*args, **kwargs)
-
-            # Record usage - extract server name from tool name if prefixed
-            # MCP tools may be prefixed with server name (e.g., "task__accept_task")
-            tool_name = tool.name
-            server_name = "unknown"
-            if "__" in tool_name:
-                parts = tool_name.split("__", 1)
-                server_name = parts[0]
-                tool_name = parts[1] if len(parts) > 1 else tool_name
-
-            session = SessionLocal()
-            try:
-                usage = AgentToolUsage(
-                    agent_id=self.agent_id,
-                    server_name=server_name,
-                    tool_name=tool_name,
-                    agent_task_id=None,  # Will be set by state later if needed
-                    input=tool_input[:500],
-                    output=str(result)[:500],
-                    timestamp=datetime.utcnow(),
-                )
-                session.add(usage)
-                session.commit()
-            except Exception:
-                session.rollback()
-                raise
-            finally:
-                session.close()
-
-            return result
-
-        # Create new tool with tracked wrapper
-        @tool_decorator(tool.name, description=tool.description)
-        def tracked_tool(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-            return tracked_wrapper(*args, **kwargs)
-
-        # Copy over the schema if it exists
-        if hasattr(tool, "args_schema"):
-            tracked_tool.args_schema = tool.args_schema
-
-        return tracked_tool
+        return ToolNode(self._tools)
 
     def _should_continue(self, state: AgentState) -> Literal["continue", "end"]:
         """Determine if agent should continue with tools or end.

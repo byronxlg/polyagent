@@ -5,7 +5,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.task_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.task_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -14,7 +14,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.memory_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.memory_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -23,7 +23,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.transaction_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.transaction_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -32,7 +32,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.agent_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.agent_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -41,7 +41,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.message_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.message_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -50,7 +50,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.usage_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.usage_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -59,7 +59,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.principal_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.principal_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -68,7 +68,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.model_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.model_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -77,7 +77,7 @@
     "server_type": "system",
     "transport": "stdio",
     "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp.servers.tooling_server"],
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.tooling_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   }
 ]
