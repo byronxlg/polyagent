@@ -61,6 +61,13 @@ from src.services.task_service import TaskService
 from src.services.transaction_service import TransactionService
 from src.services.trigger_service import SimulationConfigService, TriggerService
 
+DEFAULT_TRIGGER_SUBSCRIPTIONS = [
+    # Notify when new tasks are created
+    {"table_name": "tasks", "change_type": "INSERT", "conditions": None},
+    # Notify when messages are sent to this agent (condition added dynamically)
+    {"table_name": "messages", "change_type": "INSERT", "conditions": "SELF_MESSAGES"},
+]
+
 DEFAULT_LIMIT = 30
 
 app = FastAPI(title="PolyAgent API", version="0.1.0")
@@ -306,6 +313,20 @@ def create_agent(agent: AgentCreate, db: Session = Depends(get_db)) -> Agent:
     # Grant system servers (uses its own session)
     server_service = ServerService()
     server_service.grant_system_servers(db_agent.id)
+
+    # Create default trigger subscriptions
+    trigger_service = TriggerService()
+    for trigger_config in DEFAULT_TRIGGER_SUBSCRIPTIONS:
+        conditions = trigger_config["conditions"]
+        # Handle special marker for self-referencing conditions
+        if conditions == "SELF_MESSAGES":
+            conditions = {"to_principal_id": str(principal.id)}
+        trigger_service.create_subscription(
+            agent_id=db_agent.id,
+            table_name=trigger_config["table_name"],
+            change_type=trigger_config["change_type"],
+            conditions=conditions,
+        )
 
     return db_agent
 

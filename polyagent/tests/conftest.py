@@ -84,6 +84,7 @@ def override_session_local(db_session: Session, monkeypatch: pytest.MonkeyPatch)
         "src.services.activity_service",
         "src.services.principal_service",
         "src.services.usage_service",
+        "src.services.trigger_service",
     ]
 
     for module in modules_to_patch:
