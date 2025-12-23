@@ -192,6 +192,24 @@ curl -s -X POST "http://localhost:8000/agents/<agent-id>/tick" | python3 -m json
 curl -s "http://localhost:8000/agents/<agent-id>/servers" | python3 -m json.tool
 ```
 
+### UI Testing via Chrome
+
+Use the Chrome browser automation tools to test UI functionality:
+
+1. **Navigate to the UI** at http://localhost:5173
+2. **Select a simulation** from the sidebar
+3. **Test agent details**:
+   - Click on an agent to view their profile
+   - Check the "Servers" tab shows granted MCP servers
+   - Check the "Usage" tab shows model usage history
+4. **Test agent execution**:
+   - Click the "Run" button on an agent detail page
+   - Verify the agent's balance decreases after execution
+   - Check that new usage entries appear in the Usage tab
+5. **Verify data refresh**:
+   - Click "Refresh Data" in the sidebar
+   - Confirm updated balances and transaction counts
+
 ### Database Queries
 
 For direct database inspection:
