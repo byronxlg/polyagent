@@ -17,7 +17,6 @@ dist/
 # Docker
 Dockerfile
 .dockerignore
-nginx.conf
 
 # Misc
 *.md
