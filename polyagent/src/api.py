@@ -89,6 +89,12 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+@app.get("/health")
+def health_check() -> dict:
+    """Health check endpoint for container orchestration."""
+    return {"status": "healthy"}
+
+
 @app.on_event("startup")
 def startup() -> None:
     """Grant system servers to all existing agents on startup.
