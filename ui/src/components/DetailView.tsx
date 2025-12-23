@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { formatDateTime, formatDateTimeShort } from '@/lib/utils';
 import type { SimulationData } from '@/hooks/useSimulationData';
-import type { Tool, Transaction, Principal } from '@/lib/api';
+import type { Server, Transaction, Principal } from '@/lib/api';
 import { api } from '@/lib/api';
 import { TaskList } from '@/components/TaskList';
 import { ResourceNotFound } from '@/components/ResourceNotFound';
@@ -40,12 +40,12 @@ interface DetailViewProps {
   runningAgentId: string | null;
 }
 
-// Group tools by category
-function groupToolsByCategory(tools: Tool[]): Record<string, Tool[]> {
-  return tools.reduce<Record<string, Tool[]>>((acc, tool) => {
-    const category = tool.category || 'other';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(tool);
+// Group servers by type
+function groupServersByType(servers: Server[]): Record<string, Server[]> {
+  return servers.reduce<Record<string, Server[]>>((acc, server) => {
+    const type = server.server_type || 'other';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(server);
     return acc;
   }, {});
 }
@@ -90,7 +90,7 @@ interface AgentDetailProps {
 }
 
 function AgentDetailView({ agent, simulationData, onRunAgent, runningAgentId }: AgentDetailProps) {
-  const { models, agentTasks, transactions, messages, agentBalances, agentTools, agentToolUsage, agentModelUsage, getModelName } = simulationData;
+  const { models, agentTasks, transactions, messages, agentBalances, agentServers, agentToolUsage, agentModelUsage, getModelName } = simulationData;
 
   const balance = agentBalances[agent.id] || '0';
   const balanceNum = parseFloat(balance);
@@ -101,8 +101,8 @@ function AgentDetailView({ agent, simulationData, onRunAgent, runningAgentId }: 
     (m) => m.from_principal_id === agent.principal_id || m.to_principal_id === agent.principal_id
   );
   const agentTasksList = agentTasks.filter((at) => at.agent_id === agent.id);
-  const tools = agentTools[agent.id] || [];
-  const toolsByCategory = groupToolsByCategory(tools);
+  const servers = agentServers[agent.id] || [];
+  const serversByType = groupServersByType(servers);
 
   // Agent activity (tool usage and model usage)
   const toolUsages = agentToolUsage.filter((tu) => tu.agent_id === agent.id);
@@ -162,7 +162,7 @@ function AgentDetailView({ agent, simulationData, onRunAgent, runningAgentId }: 
             <TabsTrigger value="tasks">Tasks ({agentTasksList.length})</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="usage">Usage ({agentActivity.length})</TabsTrigger>
-            <TabsTrigger value="tools">Tools ({tools.length})</TabsTrigger>
+            <TabsTrigger value="servers">Servers ({servers.length})</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
           </TabsList>
 
@@ -463,25 +463,25 @@ function AgentDetailView({ agent, simulationData, onRunAgent, runningAgentId }: 
             </ScrollArea>
           </TabsContent>
 
-          {/* Tools Tab */}
-          <TabsContent value="tools" className="flex-1 min-h-0">
+          {/* Servers Tab */}
+          <TabsContent value="servers" className="flex-1 min-h-0">
             <ScrollArea className="h-full">
               <div className="space-y-3 pr-4">
-                {tools.length > 0 ? (
-                  Object.entries(toolsByCategory).map(([category, categoryTools]) => (
-                    <div key={category}>
-                      <span className="text-xs text-muted-foreground capitalize">{category}</span>
+                {servers.length > 0 ? (
+                  Object.entries(serversByType).map(([serverType, typeServers]) => (
+                    <div key={serverType}>
+                      <span className="text-xs text-muted-foreground capitalize">{serverType}</span>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {categoryTools.map((tool) => (
-                          <Badge key={tool.id} variant="secondary" className="text-xs">
-                            {tool.name}
+                        {typeServers.map((server) => (
+                          <Badge key={server.id} variant="secondary" className="text-xs" title={server.description}>
+                            {server.name}
                           </Badge>
                         ))}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-8">No tools available</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">No servers available</p>
                 )}
               </div>
             </ScrollArea>

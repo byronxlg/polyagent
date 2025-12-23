@@ -32,14 +32,14 @@ from src.database import Base
 from src.models import (
     Agent,
     AgentModelUsage,
+    AgentServer,
     AgentTask,
-    AgentTool,
     AgentToolUsage,
     Message,
     Model,
     Principal,
+    Server,
     Simulation,
-    Tool,
     Transaction,
 )
 

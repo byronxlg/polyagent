@@ -13,15 +13,14 @@ from src.database import SessionLocal
 from src.models import (
     Agent,
     AgentModelUsage,
+    AgentServer,
     AgentTask,
-    AgentTool,
     AgentToolUsage,
     Message,
     Model,
     Principal,
     Simulation,
     Task,
-    Tool,
     Transaction,
 )
 from src.schemas import (
@@ -40,19 +39,19 @@ from src.schemas import (
     PaginatedResponse,
     PrincipalCreate,
     PrincipalResponse,
+    ServerResponse,
     SimulationCreate,
     SimulationResponse,
     SimulationUpdate,
     TaskCreate,
     TaskResponse,
     TaskUpdate,
-    ToolResponse,
     TransactionResponse,
 )
 from src.services.activity_service import ActivityService
 from src.services.message_service import MessageService
+from src.services.server_service import ServerService
 from src.services.task_service import TaskService
-from src.services.tool_service import ToolService
 from src.services.transaction_service import TransactionService
 
 DEFAULT_LIMIT = 30
@@ -78,19 +77,19 @@ def get_db() -> Generator[Session, None, None]:
 
 @app.on_event("startup")
 def startup() -> None:
-    """Grant system tools to all existing agents on startup.
+    """Grant system servers to all existing agents on startup.
 
-    Tool records are created via seed data migration, not filesystem discovery.
+    Server records are created via seed data migration.
     """
-    tool_service = ToolService()
+    server_service = ServerService()
     db = SessionLocal()
     try:
-        # Grant system tools to all existing agents that don't have them
+        # Grant system servers to all existing agents that don't have them
         agent_ids = [agent.id for agent in db.query(Agent).all()]
     finally:
         db.close()
     for agent_id in agent_ids:
-        tool_service.grant_system_tools(agent_id)
+        server_service.grant_system_servers(agent_id)
 
 
 @app.get("/")
@@ -297,9 +296,9 @@ def create_agent(agent: AgentCreate, db: Session = Depends(get_db)) -> Agent:
             reason="initial_balance",
         )
 
-    # Grant system tools (uses its own session)
-    tool_service = ToolService()
-    tool_service.grant_system_tools(db_agent.id)
+    # Grant system servers (uses its own session)
+    server_service = ServerService()
+    server_service.grant_system_servers(db_agent.id)
 
     return db_agent
 
@@ -361,7 +360,7 @@ def delete_agent(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str
         | (Message.to_principal_id == agent.principal_id)
     ).delete(synchronize_session=False)
     db.query(AgentTask).filter(AgentTask.agent_id == agent_id).delete()
-    db.query(AgentTool).filter(AgentTool.agent_id == agent_id).delete()
+    db.query(AgentServer).filter(AgentServer.agent_id == agent_id).delete()
     db.delete(agent)
     db.commit()
     return {"message": "Agent deleted"}
@@ -374,15 +373,14 @@ def get_agent_balance(agent_id: UUID) -> dict[str, UUID | Decimal]:
     return {"agent_id": agent_id, "balance": balance}
 
 
-@app.get("/agents/{agent_id}/tools", response_model=list[ToolResponse], tags=["Agents"])
-def get_agent_tools(agent_id: UUID, db: Session = Depends(get_db)) -> list[Tool]:
-    """Get all tools granted to an agent."""
+@app.get("/agents/{agent_id}/servers", response_model=list[ServerResponse], tags=["Agents"])
+def get_agent_servers(agent_id: UUID, db: Session = Depends(get_db)) -> list:
+    """Get all MCP servers granted to an agent."""
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    tool_service = ToolService()
-    granted_names = tool_service.get_granted_tool_names(agent_id)
-    return db.query(Tool).filter(Tool.name.in_(granted_names)).all()
+    server_service = ServerService()
+    return server_service.get_servers_for_agent(agent_id)
 
 
 def _execute_single_agent(agent_id: UUID) -> dict[str, str | UUID]:
@@ -665,32 +663,19 @@ def list_agent_tool_usage(
     offset: int = 0,
     db: Session = Depends(get_db),
 ) -> dict:
-    query = db.query(AgentToolUsage, Tool.name.label("tool_name")).join(Tool)
+    query = db.query(AgentToolUsage)
     if agent_id:
         query = query.filter(AgentToolUsage.agent_id == agent_id)
 
-    total = db.query(AgentToolUsage).count() if not agent_id else (
-        db.query(AgentToolUsage).filter(AgentToolUsage.agent_id == agent_id).count()
-    )
+    total = query.count()
+    items = query.order_by(AgentToolUsage.timestamp.desc()).offset(offset).limit(limit).all()
 
-    results = []
-    for usage, tool_name in query.order_by(AgentToolUsage.timestamp.desc()).offset(offset).limit(limit).all():
-        result = {
-            "id": usage.id,
-            "agent_id": usage.agent_id,
-            "tool_id": usage.tool_id,
-            "tool_name": tool_name,
-            "input": usage.input,
-            "output": usage.output,
-            "timestamp": usage.timestamp,
-        }
-        results.append(result)
     return {
-        "items": results,
+        "items": items,
         "total": total,
         "limit": limit,
         "offset": offset,
-        "has_more": offset + len(results) < total,
+        "has_more": offset + len(items) < total,
     }
 
 
@@ -717,14 +702,14 @@ def list_agent_model_usage(
 
 @app.delete("/reset", tags=["Simulation"])
 def reset_simulation(db: Session = Depends(get_db)) -> dict[str, str]:
-    """Reset simulation data while preserving tools and models."""
+    """Reset simulation data while preserving servers and models."""
     # Delete in order to respect foreign key constraints
     db.query(AgentToolUsage).delete()
     db.query(AgentModelUsage).delete()
     db.query(Transaction).delete()
     db.query(Message).delete()
     db.query(AgentTask).delete()
-    db.query(AgentTool).delete()
+    db.query(AgentServer).delete()
     db.query(Agent).delete()
     db.query(Task).delete()
     db.commit()

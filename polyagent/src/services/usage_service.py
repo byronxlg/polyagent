@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from src.database import SessionLocal
-from src.models import Agent, AgentModelUsage, AgentToolUsage, Tool, Transaction
+from src.models import Agent, AgentModelUsage, AgentToolUsage, Transaction
 
 
 class UsageService:
@@ -110,12 +110,7 @@ class UsageService:
             if agent_task_id is not None:
                 query = query.filter(AgentToolUsage.agent_task_id == agent_task_id)
             if tool_name is not None:
-                tool = session.query(Tool).filter(Tool.name == tool_name).first()
-                if tool:
-                    query = query.filter(AgentToolUsage.tool_id == tool.id)
-                else:
-                    # Tool not found, return empty results
-                    return [], {"total_count": 0, "tools_used": {}}
+                query = query.filter(AgentToolUsage.tool_name == tool_name)
             if since is not None:
                 query = query.filter(AgentToolUsage.timestamp >= since)
             if until is not None:
@@ -126,12 +121,9 @@ class UsageService:
 
             # Get tool usage counts
             all_filtered = query.all()
-            tool_ids = {u.tool_id for u in all_filtered}
-            tools = {t.id: t.name for t in session.query(Tool).filter(Tool.id.in_(tool_ids)).all()}
-
             tools_used: dict[str, int] = {}
             for u in all_filtered:
-                name = tools.get(u.tool_id, "unknown")
+                name = f"{u.server_name}:{u.tool_name}"
                 tools_used[name] = tools_used.get(name, 0) + 1
 
             # Apply pagination
@@ -141,7 +133,8 @@ class UsageService:
                 {
                     "id": str(u.id),
                     "agent_task_id": str(u.agent_task_id) if u.agent_task_id else None,
-                    "tool_name": tools.get(u.tool_id, "unknown"),
+                    "server_name": u.server_name,
+                    "tool_name": u.tool_name,
                     "input": u.input[:500] if u.input else None,
                     "output": u.output[:500] if u.output else None,
                     "timestamp": u.timestamp.isoformat(),
@@ -272,12 +265,9 @@ class UsageService:
                 .all()
             )
 
-            tool_ids = {u.tool_id for u in tool_usages}
-            tools = {t.id: t.name for t in session.query(Tool).filter(Tool.id.in_(tool_ids)).all()}
-
             tools_used: dict[str, int] = {}
             for u in tool_usages:
-                name = tools.get(u.tool_id, "unknown")
+                name = f"{u.server_name}:{u.tool_name}"
                 tools_used[name] = tools_used.get(name, 0) + 1
 
             return {

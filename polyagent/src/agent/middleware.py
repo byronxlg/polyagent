@@ -7,7 +7,7 @@ from langgraph.types import Command
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.database import SessionLocal
-from src.models import Agent, AgentModelUsage, AgentToolUsage, Model, Principal, Tool
+from src.models import Agent, AgentModelUsage, AgentToolUsage, Model
 from src.services.transaction_service import TransactionService
 
 logger = logging.getLogger(__name__)
@@ -182,31 +182,23 @@ def tool_usage_tracker(request, handler):  # noqa: ANN001, ANN201, C901, PLR0912
         output_content = str(result)
 
     # AFTER: Record tool output in its own session
+    # Parse server name from tool name if prefixed (e.g., "task__accept_task")
+    server_name = "unknown"
+    actual_tool_name = tool_name
+    if "__" in tool_name:
+        parts = tool_name.split("__", 1)
+        server_name = parts[0]
+        actual_tool_name = parts[1] if len(parts) > 1 else tool_name
+
     session = SessionLocal()
     try:
-        # Look up or create the Tool
-        tool = session.query(Tool).filter(Tool.name == tool_name).first()
-        if not tool:
-            # Get system principal ID for auto-created tools
-            system_principal = session.query(Principal).filter(Principal.principal_type == "system").first()
-            if not system_principal:
-                raise ValueError("No system principal found in database")
-
-            tool = Tool(
-                name=tool_name,
-                description=f"Auto-created tool: {tool_name}",
-                created_by_principal_id=system_principal.id,
-                scope="local",
-            )
-            session.add(tool)
-            session.flush()
-
         usage = AgentToolUsage(
             agent_id=agent_id,
-            tool_id=tool.id,
+            server_name=server_name,
+            tool_name=actual_tool_name,
             agent_task_id=agent_task_id,
-            input=tool_input,
-            output=output_content,
+            input=tool_input[:500] if tool_input else None,
+            output=output_content[:500] if output_content else None,
             timestamp=datetime.utcnow(),
         )
         session.add(usage)

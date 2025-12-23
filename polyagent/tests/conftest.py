@@ -78,7 +78,7 @@ def override_session_local(db_session: Session, monkeypatch: pytest.MonkeyPatch)
         "src.api",
         "src.services.transaction_service",
         "src.services.task_service",
-        "src.services.tool_service",
+        "src.services.server_service",
         "src.services.message_service",
         "src.services.agent_service",
         "src.services.activity_service",

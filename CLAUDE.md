@@ -137,25 +137,99 @@ git worktree remove ../polyagent-foo
 
 ## Getting Started
 
-1. **Backend Setup:**
-   ```bash
-   cd polyagent
-   uv sync
-   uv run alembic upgrade head  # Apply database migrations
-   uv run fastapi dev src/api.py
-   ```
-
-2. **Frontend Setup:**
-   ```bash
-   cd ui
-   npm install
-   npm run dev
-   ```
-
-3. **Database Setup:**
+1. **Database Setup:**
    ```bash
    cd database
    docker-compose up -d
    ```
 
+2. **Backend Setup:**
+   ```bash
+   cd polyagent
+   uv sync
+   uv run python -m alembic upgrade head  # Apply database migrations
+   ```
+
+3. **Frontend Setup:**
+   ```bash
+   cd ui
+   npm install
+   ```
+
 See subdirectory CLAUDE.md files for detailed development workflows.
+
+## Local Testing
+
+Use tmux to run multiple services simultaneously for local testing.
+
+### Starting Services
+
+1. **Start the API server** (in one tmux pane):
+   ```bash
+   cd polyagent
+   uv run python -m uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
+   ```
+   API available at http://localhost:8000 with docs at http://localhost:8000/docs
+
+2. **Start the UI server** (in another tmux pane):
+   ```bash
+   cd ui
+   npm run dev
+   ```
+   UI available at http://localhost:5173
+
+### Testing Agent Execution
+
+To test an agent's think cycle via the API:
+```bash
+# Get list of agents
+curl -s http://localhost:8000/agents | python3 -m json.tool
+
+# Trigger agent think cycle
+curl -s -X POST "http://localhost:8000/agents/<agent-id>/tick" | python3 -m json.tool
+
+# Check agent's granted MCP servers
+curl -s "http://localhost:8000/agents/<agent-id>/servers" | python3 -m json.tool
+```
+
+### UI Testing via Chrome
+
+Use the Chrome browser automation tools to test UI functionality:
+
+1. **Navigate to the UI** at http://localhost:5173
+2. **Select a simulation** from the sidebar
+3. **Test agent details**:
+   - Click on an agent to view their profile
+   - Check the "Servers" tab shows granted MCP servers
+   - Check the "Usage" tab shows model usage history
+4. **Test agent execution**:
+   - Click the "Run" button on an agent detail page
+   - Verify the agent's balance decreases after execution
+   - Check that new usage entries appear in the Usage tab
+5. **Verify data refresh**:
+   - Click "Refresh Data" in the sidebar
+   - Confirm updated balances and transaction counts
+
+### Database Queries
+
+For direct database inspection:
+```bash
+# Check servers table
+PGPASSWORD=agent psql -h localhost -U agent -d agent_civilisation -c "SELECT name, server_type FROM servers;"
+
+# Check agent server grants
+PGPASSWORD=agent psql -h localhost -U agent -d agent_civilisation -c "SELECT * FROM agent_servers LIMIT 10;"
+```
+
+### Tmux Quick Reference
+
+```bash
+# List sessions
+tmux list-sessions
+
+# Send command to a pane
+tmux send-keys -t <session>:<window>.<pane> '<command>' Enter
+
+# Capture pane output (for logs)
+tmux capture-pane -t <session>:<window>.<pane> -p -S -50
+```
