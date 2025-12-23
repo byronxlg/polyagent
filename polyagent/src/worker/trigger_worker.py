@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from src.agent.agent import AgentExecutor
+from src.agent.agent import Agent as AgentExecutor
 from src.database import SessionLocal
 from src.models import Agent, AgentTask, AgentTrigger, Message, Simulation, Task, Transaction
 from src.services.trigger_constants import WATCHABLE_TABLES
