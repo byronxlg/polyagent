@@ -394,3 +394,84 @@ class ActivityResponse(BaseModel):
     limit: int
     offset: int
     has_more: bool
+
+
+# Trigger schemas
+
+
+class TriggerChangeType(str, Enum):
+    INSERT = "INSERT"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+
+
+class TriggerTableName(str, Enum):
+    TASKS = "tasks"
+    MESSAGES = "messages"
+    AGENT_TASKS = "agent_tasks"
+    TRANSACTIONS = "transactions"
+
+
+class AgentTriggerCreate(BaseModel):
+    table_name: TriggerTableName
+    change_type: TriggerChangeType
+    conditions: dict | None = None
+
+
+class AgentTriggerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    agent_id: UUID
+    simulation_id: UUID
+    table_name: str
+    change_type: str
+    conditions: dict | None
+    is_active: bool
+    created_at: datetime
+    last_triggered_at: datetime | None = None
+
+    @field_serializer("created_at", "last_triggered_at")
+    def serialize_dt(self, dt: datetime | None) -> str | None:
+        return dt.isoformat() + "Z" if dt else None
+
+
+class AgentTriggerEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    trigger_id: UUID
+    agent_id: UUID
+    table_name: str
+    record_id: UUID
+    change_type: str
+    matched_conditions: dict | None
+    agent_executed: bool
+    execution_started_at: datetime | None = None
+    execution_completed_at: datetime | None = None
+    execution_error: str | None = None
+    created_at: datetime
+
+    @field_serializer("created_at", "execution_started_at", "execution_completed_at")
+    def serialize_dt(self, dt: datetime | None) -> str | None:
+        return dt.isoformat() + "Z" if dt else None
+
+
+class SimulationConfigResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    simulation_id: UUID
+    is_paused: bool
+    config_json: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_dt(self, dt: datetime | None) -> str | None:
+        return dt.isoformat() + "Z" if dt else None
+
+
+class SimulationConfigUpdate(BaseModel):
+    is_paused: bool | None = None
+    config_json: dict | None = None

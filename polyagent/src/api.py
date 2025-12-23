@@ -16,10 +16,13 @@ from src.models import (
     AgentServer,
     AgentTask,
     AgentToolUsage,
+    AgentTrigger,
+    AgentTriggerEvent,
     Message,
     Model,
     Principal,
     Simulation,
+    SimulationConfig,
     Task,
     Transaction,
 )
@@ -31,6 +34,8 @@ from src.schemas import (
     AgentResponse,
     AgentTaskResponse,
     AgentToolUsageResponse,
+    AgentTriggerEventResponse,
+    AgentTriggerResponse,
     AgentUpdate,
     MessageCreate,
     MessageResponse,
@@ -40,6 +45,7 @@ from src.schemas import (
     PrincipalCreate,
     PrincipalResponse,
     ServerResponse,
+    SimulationConfigResponse,
     SimulationCreate,
     SimulationResponse,
     SimulationUpdate,
@@ -53,6 +59,7 @@ from src.services.message_service import MessageService
 from src.services.server_service import ServerService
 from src.services.task_service import TaskService
 from src.services.transaction_service import TransactionService
+from src.services.trigger_service import SimulationConfigService, TriggerService
 
 DEFAULT_LIMIT = 30
 
@@ -347,7 +354,7 @@ def delete_agent(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    # Delete related data in order
+    # Delete related data in order (respecting foreign key constraints)
     db.query(AgentToolUsage).filter(AgentToolUsage.agent_id == agent_id).delete()
     db.query(AgentModelUsage).filter(AgentModelUsage.agent_id == agent_id).delete()
     # For Transaction and Message, convert agent_id to principal_id for filtering
@@ -361,6 +368,9 @@ def delete_agent(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str
     ).delete(synchronize_session=False)
     db.query(AgentTask).filter(AgentTask.agent_id == agent_id).delete()
     db.query(AgentServer).filter(AgentServer.agent_id == agent_id).delete()
+    # Delete trigger events first (references agent_triggers), then triggers
+    db.query(AgentTriggerEvent).filter(AgentTriggerEvent.agent_id == agent_id).delete()
+    db.query(AgentTrigger).filter(AgentTrigger.agent_id == agent_id).delete()
     db.delete(agent)
     db.commit()
     return {"message": "Agent deleted"}
@@ -733,6 +743,88 @@ def get_activity(
         agent_id=agent_id,
         types=type_list,
     )
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(items) < total,
+    }
+
+
+# Trigger System Endpoints
+
+
+@app.get("/simulations/{simulation_id}/config", response_model=SimulationConfigResponse, tags=["Triggers"])
+def get_simulation_config(simulation_id: UUID, db: Session = Depends(get_db)) -> SimulationConfig:
+    """Get simulation configuration including pause state."""
+    config_service = SimulationConfigService()
+    return config_service.get_or_create_config(simulation_id)
+
+
+@app.post("/simulations/{simulation_id}/pause", response_model=SimulationConfigResponse, tags=["Triggers"])
+def pause_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> SimulationConfig:
+    """Pause automatic agent triggering for a simulation.
+
+    When paused, the trigger worker will not execute agents in this simulation,
+    even if their trigger conditions are met.
+    """
+    # Verify simulation exists
+    simulation = db.query(Simulation).filter(Simulation.id == simulation_id).first()
+    if not simulation:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    config_service = SimulationConfigService()
+    return config_service.pause_simulation(simulation_id)
+
+
+@app.post("/simulations/{simulation_id}/resume", response_model=SimulationConfigResponse, tags=["Triggers"])
+def resume_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> SimulationConfig:
+    """Resume automatic agent triggering for a simulation."""
+    # Verify simulation exists
+    simulation = db.query(Simulation).filter(Simulation.id == simulation_id).first()
+    if not simulation:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    config_service = SimulationConfigService()
+    return config_service.resume_simulation(simulation_id)
+
+
+@app.get("/agents/{agent_id}/triggers", response_model=list[AgentTriggerResponse], tags=["Triggers"])
+def list_agent_triggers(
+    agent_id: UUID,
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+) -> list[AgentTrigger]:
+    """List an agent's trigger subscriptions."""
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    trigger_service = TriggerService()
+    is_active = None if include_inactive else True
+    return trigger_service.list_subscriptions(agent_id=agent_id, is_active=is_active)
+
+
+@app.get(
+    "/trigger-events",
+    response_model=PaginatedResponse[AgentTriggerEventResponse],
+    tags=["Triggers"],
+)
+def list_trigger_events(
+    agent_id: UUID | None = None,
+    limit: int = DEFAULT_LIMIT,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+) -> dict:
+    """List recent trigger events for debugging and monitoring."""
+    query = db.query(AgentTriggerEvent)
+    if agent_id:
+        query = query.filter(AgentTriggerEvent.agent_id == agent_id)
+
+    total = query.count()
+    items = query.order_by(AgentTriggerEvent.created_at.desc()).offset(offset).limit(limit).all()
+
     return {
         "items": items,
         "total": total,
