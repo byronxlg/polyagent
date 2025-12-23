@@ -73,20 +73,61 @@ erDiagram
         datetime received_at "Timestamp when message was received"
     }
 
-    Tool {
-        uuid id PK "Unique tool identifier"
-        uuid created_by_principal_id FK "Principal who created this tool"
-        string name "Tool name (unique)"
-        string description "What the tool does"
-        string category "Tool category (derived from file name for local tools)"
-        string scope "local, internal, or external"
+    Server {
+        uuid id PK "Unique server identifier"
+        uuid created_by_principal_id FK "Principal who created this server"
+        string name "Server name (unique)"
+        string description "What the server provides"
+        string server_type "system or custom"
+        string transport "stdio or http"
+        string command "Command to run server"
+        json args "Command arguments"
+        json env "Environment variables"
+        bool is_active "Whether server is active"
+        datetime created_at "Timestamp when created"
     }
 
-    AgentTool {
+    AgentServer {
         uuid id PK "Unique identifier"
         uuid agent_id FK "Agent with access"
-        uuid tool_id FK "Tool accessible to agent"
+        uuid server_id FK "Server accessible to agent"
         datetime granted_at "Timestamp when access was granted"
+    }
+
+    AgentTrigger {
+        uuid id PK "Unique trigger identifier"
+        uuid agent_id FK "Agent subscribed to this trigger"
+        uuid simulation_id FK "Simulation scope for trigger"
+        string table_name "Table to watch: tasks, messages, agent_tasks, transactions"
+        string change_type "INSERT, UPDATE, or DELETE"
+        json conditions "Filter conditions as key-value pairs"
+        bool is_active "Whether trigger is active"
+        datetime created_at "Timestamp when created"
+        datetime last_triggered_at "Timestamp of last trigger"
+    }
+
+    AgentTriggerEvent {
+        uuid id PK "Unique event identifier"
+        uuid trigger_id FK "Which trigger was activated"
+        uuid agent_id FK "Agent that was triggered"
+        string table_name "Table where change occurred"
+        uuid record_id "ID of changed record"
+        string change_type "Type of change detected"
+        json matched_conditions "Conditions that matched"
+        bool agent_executed "Whether agent execution started"
+        datetime execution_started_at "When execution started"
+        datetime execution_completed_at "When execution completed"
+        string execution_error "Error message if failed"
+        datetime created_at "Timestamp when event recorded"
+    }
+
+    SimulationConfig {
+        uuid id PK "Unique config identifier"
+        uuid simulation_id FK "Simulation this config belongs to (unique)"
+        bool is_paused "Whether agent triggering is paused"
+        json config_json "Additional configuration"
+        datetime created_at "Timestamp when created"
+        datetime updated_at "Timestamp when last updated"
     }
 
     AgentModelUsage {
@@ -115,7 +156,8 @@ erDiagram
     AgentToolUsage {
         uuid id PK "Unique identifier"
         uuid agent_id FK "Agent that used the tool"
-        uuid tool_id FK "Tool that was used"
+        string server_name "MCP server name"
+        string tool_name "Tool name within server"
         uuid agent_task_id FK "Optional: task this usage is for"
         string input "Input parameters provided to tool"
         string output "Output returned by tool"
@@ -127,10 +169,12 @@ erDiagram
     Principal ||--o{ Agent : "created"
     Principal ||--o{ Simulation : "owns"
     Principal ||--o{ Task : "created"
-    Principal ||--o{ Tool : "created"
+    Principal ||--o{ Server : "created"
 
     Simulation ||--o{ Agent : "contains"
     Simulation ||--o{ Task : "contains"
+    Simulation ||--o| SimulationConfig : "has config"
+    Simulation ||--o{ AgentTrigger : "scopes"
 
     Message }o--|| Principal : "sends"
     Message }o--|| Principal : "receives"
@@ -145,11 +189,15 @@ erDiagram
     Agent ||--o{ AgentTask : "attempts"
     AgentTask }o--|| Task : "for"
 
-    Agent ||--o{ AgentTool : "has access to"
-    AgentTool }o--|| Tool : "grants"
+    Agent ||--o{ AgentServer : "has access to"
+    AgentServer }o--|| Server : "grants"
 
-    Agent ||--o{ AgentToolUsage : "uses"
-    AgentToolUsage }o--|| Tool : "tracks"
+    Agent ||--o{ AgentTrigger : "subscribes to"
+    Agent ||--o{ AgentTriggerEvent : "triggered by"
+
+    AgentTrigger ||--o{ AgentTriggerEvent : "activates"
+
+    Agent ||--o{ AgentToolUsage : "uses tools"
 
     AgentTask ||--o{ AgentModelUsage : "incurs"
     AgentTask ||--o{ AgentToolUsage : "incurs"
