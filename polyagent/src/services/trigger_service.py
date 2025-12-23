@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.database import SessionLocal
 from src.models import Agent, AgentTrigger, AgentTriggerEvent, Simulation, SimulationConfig
-from src.services.trigger_constants import CHANGE_TYPES, WATCHABLE_TABLES
+from src.schemas import TriggerChangeType, TriggerTableName
 
 
 class TriggerService:
@@ -34,10 +34,14 @@ class TriggerService:
         Raises:
             ValueError: If table_name or change_type is invalid
         """
-        if table_name not in WATCHABLE_TABLES:
-            raise ValueError(f"Invalid table_name. Choose from: {WATCHABLE_TABLES}")
-        if change_type not in CHANGE_TYPES:
-            raise ValueError(f"Invalid change_type. Choose from: {CHANGE_TYPES}")
+        valid_tables = {t.value for t in TriggerTableName}
+        valid_change_types = {c.value for c in TriggerChangeType}
+        if table_name not in valid_tables:
+            msg = f"Invalid table_name. Choose from: {valid_tables}"
+            raise ValueError(msg)
+        if change_type not in valid_change_types:
+            msg = f"Invalid change_type. Choose from: {valid_change_types}"
+            raise ValueError(msg)
 
         session = SessionLocal()
         try:

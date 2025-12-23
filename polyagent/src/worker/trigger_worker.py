@@ -17,7 +17,7 @@ from uuid import UUID
 from src.agent.agent import Agent as AgentExecutor
 from src.database import SessionLocal
 from src.models import Agent, AgentTask, AgentTrigger, Message, Simulation, Task, Transaction
-from src.services.trigger_constants import WATCHABLE_TABLES
+from src.schemas import TriggerTableName
 from src.services.trigger_service import (
     EventMatcherService,
     SimulationConfigService,
@@ -28,17 +28,25 @@ from src.worker.config import WorkerConfig
 
 logger = logging.getLogger(__name__)
 
-# Map table names to their model classes (must match WATCHABLE_TABLES)
-TABLE_MODEL_MAP = {
-    "tasks": Task,
-    "messages": Message,
-    "agent_tasks": AgentTask,
-    "transactions": Transaction,
-}
 
-# Runtime check to ensure TABLE_MODEL_MAP matches WATCHABLE_TABLES
-if set(TABLE_MODEL_MAP.keys()) != WATCHABLE_TABLES:
-    raise RuntimeError("TABLE_MODEL_MAP must match WATCHABLE_TABLES from trigger_constants")
+def _build_table_model_map() -> dict:
+    """Build mapping from table names to model classes dynamically from TriggerTableName enum."""
+    # Map enum values to their corresponding model classes
+    model_map = {
+        TriggerTableName.TASKS.value: Task,
+        TriggerTableName.MESSAGES.value: Message,
+        TriggerTableName.AGENT_TASKS.value: AgentTask,
+        TriggerTableName.TRANSACTIONS.value: Transaction,
+    }
+    # Verify all enum values have mappings
+    for table_name in TriggerTableName:
+        if table_name.value not in model_map:
+            msg = f"Missing model mapping for table: {table_name.value}"
+            raise RuntimeError(msg)
+    return model_map
+
+
+TABLE_MODEL_MAP = _build_table_model_map()
 
 
 class TriggerWorker:
@@ -150,9 +158,6 @@ class TriggerWorker:
                 if agent_id not in seen_agents:
                     seen_agents.add(agent_id)
                     unique_triggers.append((agent_id, trigger, change))
-
-            # Limit agents per cycle
-            unique_triggers = unique_triggers[: self.config.max_agents_per_cycle]
 
             # Execute agents concurrently
             if unique_triggers:
