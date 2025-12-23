@@ -1,0 +1,83 @@
+[
+  {
+    "name": "task",
+    "description": "Task management tools: get tasks, accept, submit, and abandon tasks.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.task_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "memory",
+    "description": "Memory storage tools: read/write structured key-value memory and unstructured notes.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.memory_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "transaction",
+    "description": "Financial transaction tools: check balance and transfer dollars.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.transaction_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "agent",
+    "description": "Agent management tools: profile, agents list, idle signaling, and agent creation.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.agent_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "message",
+    "description": "Messaging tools: send messages and check inbox.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.message_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "usage",
+    "description": "Usage tracking tools: model usage, tool usage, transactions, and task costs.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.usage_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "principal",
+    "description": "Principal lookup tools: list and get principals in the system.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.principal_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "model",
+    "description": "Model information tools: get model costs and list available models.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.model_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "tooling",
+    "description": "MCP server creation tools: create, list, delete, and grant custom servers.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp.servers.tooling_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  }
+]

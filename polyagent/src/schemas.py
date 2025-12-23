@@ -325,11 +325,11 @@ class AgentToolUsageResponse(BaseModel):
 
     id: UUID
     agent_id: UUID
-    tool_id: UUID
-    agent_task_id: UUID | None = None
+    server_name: str
     tool_name: str
-    input: str
-    output: str
+    agent_task_id: UUID | None = None
+    input: str | None
+    output: str | None
     timestamp: datetime
 
     @field_serializer("timestamp")
@@ -356,14 +356,15 @@ class AgentModelUsageResponse(BaseModel):
         return dt.isoformat() + "Z" if dt else None
 
 
-class ToolResponse(BaseModel):
+class ServerResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     name: str
     description: str
-    category: str | None
-    scope: str  # local, internal, external
+    server_type: str  # system or custom
+    transport: str  # stdio or http
+    is_active: bool
     created_by_principal_id: UUID
 
 

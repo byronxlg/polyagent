@@ -15,11 +15,13 @@ class MessageService:
             # Validate principals exist
             from_principal = session.query(Principal).filter(Principal.id == from_principal_id).first()
             if not from_principal:
-                raise ValueError(f"Principal {from_principal_id} not found")
+                msg = f"Principal {from_principal_id} not found"
+                raise ValueError(msg)
 
             to_principal = session.query(Principal).filter(Principal.id == to_principal_id).first()
             if not to_principal:
-                raise ValueError(f"Principal {to_principal_id} not found")
+                msg = f"Principal {to_principal_id} not found"
+                raise ValueError(msg)
 
             message = Message(
                 from_principal_id=from_principal_id,
@@ -44,7 +46,8 @@ class MessageService:
             # Validate principal exists
             principal = session.query(Principal).filter(Principal.id == principal_id).first()
             if not principal:
-                raise ValueError(f"Principal {principal_id} not found")
+                msg = f"Principal {principal_id} not found"
+                raise ValueError(msg)
 
             messages = (
                 session.query(Message)

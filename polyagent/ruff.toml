@@ -120,6 +120,22 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "PLC0415", # Allow imports not at top level
     "D",       # Don't require docstrings in tests
 ]
+"src/mcp/**/*.py" = [
+    "ARG001",  # principal_id is always passed to tools but not always used
+    "BLE001",  # Tools need broad exception handling for graceful error responses
+    "C901",    # Code validation functions need complexity for AST checking
+    "FBT001",  # Boolean parameters are fine for filter tools
+    "FBT002",  # Boolean defaults are fine for filter tools
+    "PLR0911", # Many returns needed for error handling in tools
+    "PLR0912", # Many branches needed for validation logic
+    "PLR0913", # Many parameters needed for filter tools
+    "D401",    # Tool docstrings describe what they do, not commands
+    "SIM102",  # Nested ifs preferred for readability in AST validation
+]
+"src/test_api.py" = [
+    "S101",    # Allow assert in tests
+    "PLR2004", # Allow magic numbers (HTTP status codes)
+]
 
 [format]
 quote-style = "double"

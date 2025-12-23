@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import desc, literal, union_all
 from sqlalchemy.orm import Session
 
-from src.models import Agent, AgentModelUsage, AgentTask, AgentToolUsage, Message, Tool, Transaction
+from src.models import Agent, AgentModelUsage, AgentTask, AgentToolUsage, Message, Transaction
 
 
 class ActivityService:
@@ -201,12 +201,11 @@ class ActivityService:
         elif entity_type == "tool_usage":
             entity = self.db.query(AgentToolUsage).filter(AgentToolUsage.id == entity_id).first()
             if entity:
-                tool = self.db.query(Tool).filter(Tool.id == entity.tool_id).first()
                 return {
                     "id": entity.id,
                     "agent_id": entity.agent_id,
-                    "tool_id": entity.tool_id,
-                    "tool_name": tool.name if tool else "unknown",
+                    "server_name": entity.server_name,
+                    "tool_name": entity.tool_name,
                     "input": entity.input,
                     "output": entity.output,
                     "timestamp": entity.timestamp.isoformat() if entity.timestamp else None,

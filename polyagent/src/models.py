@@ -29,7 +29,7 @@ class Principal(Base):
     )
     simulations: Mapped[list["Simulation"]] = relationship(back_populates="principal")
     created_tasks: Mapped[list["Task"]] = relationship(back_populates="created_by")
-    tools: Mapped[list["Tool"]] = relationship(back_populates="created_by")
+    servers: Mapped[list["Server"]] = relationship(back_populates="created_by")
     sent_messages: Mapped[list["Message"]] = relationship(
         back_populates="sender", foreign_keys="Message.from_principal_id"
     )
@@ -105,7 +105,7 @@ class Agent(Base):
         back_populates="created_agents", foreign_keys=[created_by_principal_id]
     )
     agent_tasks: Mapped[list["AgentTask"]] = relationship(back_populates="agent")
-    tools: Mapped[list["AgentTool"]] = relationship(back_populates="agent")
+    servers: Mapped[list["AgentServer"]] = relationship(back_populates="agent")
     model_usage: Mapped[list["AgentModelUsage"]] = relationship(back_populates="agent")
     tool_usage: Mapped[list["AgentToolUsage"]] = relationship(back_populates="agent")
 
@@ -178,8 +178,10 @@ class Message(Base):
     )
 
 
-class Tool(Base):
-    __tablename__ = "tools"
+class Server(Base):
+    """MCP server configuration."""
+
+    __tablename__ = "servers"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
@@ -187,26 +189,32 @@ class Tool(Base):
     created_by_principal_id: Mapped[UUID] = mapped_column(ForeignKey("principals.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    category: Mapped[str | None] = mapped_column(String, nullable=True)
-    scope: Mapped[str] = mapped_column(String, nullable=False, default="local")  # local, internal, external
+    server_type: Mapped[str] = mapped_column(String, nullable=False)  # "system" or "custom"
+    transport: Mapped[str] = mapped_column(String, nullable=False, default="stdio")  # "stdio" or "http"
+    command: Mapped[str] = mapped_column(String, nullable=False)  # Command to run server
+    args: Mapped[list | None] = mapped_column(JSON, nullable=True)  # Command arguments
+    env: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # Environment variables
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
-    created_by: Mapped["Principal"] = relationship(back_populates="tools")
-    agent_tools: Mapped[list["AgentTool"]] = relationship(back_populates="tool")
-    usage_records: Mapped[list["AgentToolUsage"]] = relationship(back_populates="tool")
+    created_by: Mapped["Principal"] = relationship(back_populates="servers")
+    agent_servers: Mapped[list["AgentServer"]] = relationship(back_populates="server")
 
 
-class AgentTool(Base):
-    __tablename__ = "agent_tools"
+class AgentServer(Base):
+    """Junction table for agent-to-MCP server grants."""
+
+    __tablename__ = "agent_servers"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
     )
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id"), nullable=False)
-    tool_id: Mapped[UUID] = mapped_column(ForeignKey("tools.id"), nullable=False)
+    server_id: Mapped[UUID] = mapped_column(ForeignKey("servers.id"), nullable=False)
     granted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
-    agent: Mapped["Agent"] = relationship(back_populates="tools")
-    tool: Mapped["Tool"] = relationship(back_populates="agent_tools")
+    agent: Mapped["Agent"] = relationship(back_populates="servers")
+    server: Mapped["Server"] = relationship(back_populates="agent_servers")
 
 
 class AgentModelUsage(Base):
@@ -258,12 +266,12 @@ class AgentToolUsage(Base):
         PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
     )
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id"), nullable=False)
-    tool_id: Mapped[UUID] = mapped_column(ForeignKey("tools.id"), nullable=False)
+    server_name: Mapped[str] = mapped_column(String, nullable=False)  # MCP server name
+    tool_name: Mapped[str] = mapped_column(String, nullable=False)  # Tool name within server
     agent_task_id: Mapped[UUID | None] = mapped_column(ForeignKey("agent_tasks.id"), nullable=True)
     input: Mapped[str] = mapped_column(Text, nullable=False)
     output: Mapped[str] = mapped_column(Text, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     agent: Mapped["Agent"] = relationship(back_populates="tool_usage")
-    tool: Mapped["Tool"] = relationship(back_populates="usage_records")
     agent_task: Mapped["AgentTask | None"] = relationship(back_populates="tool_usage")

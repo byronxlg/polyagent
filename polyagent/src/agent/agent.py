@@ -4,14 +4,19 @@ This agent builds a LangGraph StateGraph directly rather than using the
 chat-oriented create_agent function. The agent runs autonomously until
 it decides it has completed its current objective, rather than waiting
 for user input.
+
+This implementation uses MCP (Model Context Protocol) servers for tools,
+connected via the langchain-mcp-adapters MultiServerMCPClient.
 """
 
+import asyncio
+import json
 import logging
 import time
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
@@ -32,8 +37,8 @@ from src.agent.middleware import after_agent, before_agent
 from src.agent.state import AgentState
 from src.database import SessionLocal
 from src.models import Agent as AgentModel
-from src.models import AgentModelUsage, AgentToolUsage, Model, Principal, Tool
-from src.services.tool_service import ToolService
+from src.models import AgentModelUsage, AgentToolUsage, Model
+from src.services.server_service import ServerService
 from src.services.transaction_service import TransactionService
 
 logger = logging.getLogger(__name__)
@@ -49,11 +54,16 @@ class Agent:
     - Ends when the LLM produces no tool calls (natural completion)
     - Final text output is captured to memory as reflection for the next run
     - Tracks model and tool usage inline within the graph nodes
+
+    Tools are loaded from MCP servers via MultiServerMCPClient.
     """
 
     def __init__(self, agent_id: UUID | str) -> None:
         self.agent_id = agent_id
         self.transaction_service = TransactionService()
+        self.server_service = ServerService()
+        self._mcp_client = None
+        self._tools = None
 
         # Load agent and model data
         session = SessionLocal()
@@ -62,6 +72,8 @@ class Agent:
             if not agent_model:
                 msg = f"Agent {agent_id} not found"
                 raise ValueError(msg)
+
+            self.principal_id = str(agent_model.principal_id)
 
             model = session.query(Model).filter(Model.id == agent_model.model_id).first()
             if not model:
@@ -86,21 +98,62 @@ class Agent:
         self.llm = ChatLiteLLM(model=self.model.provider_model_id)
         self.system_prompt = self._get_system_prompt()
 
-        # Load tools
-        tool_service = ToolService()
-        self.tools = tool_service.get_tools_for_agent(agent_id)
+    def _get_mcp_server_configs(self) -> dict[str, dict[str, Any]]:
+        """Build MCP server configurations from granted servers."""
+        servers = self.server_service.get_servers_for_agent(self.agent_id)
+        configs = {}
 
-        # Bind tools to the LLM
-        self.llm_with_tools = self.llm.bind_tools(self.tools)
+        for server in servers:
+            config = {
+                "transport": server.transport,
+                "command": server.command,
+            }
+            if server.args:
+                config["args"] = server.args
 
-        # Build the graph
-        self.graph = self._build_graph()
+            # Merge server env with principal_id injection
+            env = dict(server.env) if server.env else {}
+            env["PRINCIPAL_ID"] = self.principal_id
+            config["env"] = env
+
+            configs[server.name] = config
+
+        return configs
+
+    async def _init_mcp_client(self) -> None:
+        """Initialize MCP client and load tools."""
+        from langchain_mcp_adapters.client import MultiServerMCPClient  # noqa: PLC0415
+
+        server_configs = self._get_mcp_server_configs()
+
+        if not server_configs:
+            logger.warning(f"Agent {self.agent_id} has no MCP servers granted")
+            self._tools = []
+            return
+
+        self._mcp_client = MultiServerMCPClient(server_configs)
+        raw_tools = await self._mcp_client.get_tools()
+
+        # Wrap tools to track usage and inject principal_id
+        self._tools = [self._wrap_tool_for_tracking(tool) for tool in raw_tools]
+        logger.info(
+            f"Agent {self.agent_id} loaded {len(self._tools)} tools from {len(server_configs)} MCP servers"
+        )
+
+    async def _close_mcp_client(self) -> None:
+        """Close MCP client connections."""
+        if self._mcp_client is not None:
+            try:
+                await self._mcp_client.close()
+            except OSError as e:
+                logger.warning(f"Error closing MCP client: {e}")
+            self._mcp_client = None
 
     def get_balance(self) -> Decimal:
         return self.transaction_service.get_balance(self.agent_id)
 
-    def think(self) -> str:
-        """Execute one autonomous thinking cycle.
+    async def think_async(self) -> str:
+        """Execute one autonomous thinking cycle (async version).
 
         The agent will continue calling tools until it has no more actions to take.
         When done, it should provide a reflection that will be saved to memory.
@@ -111,7 +164,21 @@ class Agent:
         balance = self.transaction_service.get_balance(self.agent_id)
         logger.info(f"Agent {self.agent_id} starting think() with balance ${balance}")
 
+        # Initialize MCP client and load tools
+        await self._init_mcp_client()
+
+        if not self._tools:
+            logger.warning(f"Agent {self.agent_id} has no tools available")
+            return "No tools available. Cannot perform any actions."
+
+        # Bind tools to the LLM
+        self.llm_with_tools = self.llm.bind_tools(self._tools)
+
+        # Build the graph
+        self.graph = self._build_graph()
+
         before_agent(self.agent_id)
+        final_message_for_memory = None
         try:
             response = self.graph.invoke(
                 {
@@ -137,31 +204,33 @@ class Agent:
             content = last_message.content if hasattr(last_message, "content") else str(last_message)
             logger.info(f"Agent {self.agent_id} final response: {content[:100]}...")
 
-            # Capture final message for memory
             final_message_for_memory = content
-
             return content
 
         except (APIConnectionError, InternalServerError, ServiceUnavailableError, Timeout) as e:
             error_msg = f"Network or server error: {type(e).__name__}"
             logger.error(f"Agent {self.agent_id} failed due to connection issues: {e}", exc_info=True)
-            final_message_for_memory = None
             raise RuntimeError(error_msg) from e
         except RateLimitError as e:
             error_msg = "Rate limit exceeded. Please try again later."
             logger.error(f"Agent {self.agent_id} hit rate limit: {e}")
-            final_message_for_memory = None
             raise RuntimeError(error_msg) from e
         except ValueError as e:
             logger.error(f"Agent {self.agent_id} validation error: {e}")
-            final_message_for_memory = None
             raise
         except Exception as e:
             logger.error(f"Agent {self.agent_id} think() failed with unexpected error: {e}", exc_info=True)
-            final_message_for_memory = None
             raise
         finally:
             after_agent(self.agent_id, final_message=final_message_for_memory)
+            await self._close_mcp_client()
+
+    def think(self) -> str:
+        """Execute one autonomous thinking cycle (sync wrapper).
+
+        This is a synchronous wrapper around think_async() for backwards compatibility.
+        """
+        return asyncio.run(self.think_async())
 
     def _get_system_prompt(self) -> str:
         base_prompt = SYSTEM_PROMPT_PATH.read_text()
@@ -170,6 +239,7 @@ class Agent:
             ## Your Identity
 
             - **Agent ID**: {self.agent_id}
+            - **Principal ID**: {self.principal_id}
             - **Current Balance**: ${self.get_balance()}
             - **Model**: {self.model.name}
             - **Model Provider**: {self.model.provider}
@@ -184,6 +254,7 @@ class Agent:
         # Add nodes
         workflow.add_node("agent", self._call_model)
         workflow.add_node("tools", self._create_tool_node())
+        workflow.add_node("post_tool", self._post_tool_hook)
 
         # Set entry point
         workflow.set_entry_point("agent")
@@ -195,10 +266,52 @@ class Agent:
             {"continue": "tools", "end": END},
         )
 
-        # Tools always return to agent
-        workflow.add_edge("tools", "agent")
+        # Tools go to post_tool hook, then back to agent
+        workflow.add_edge("tools", "post_tool")
+        workflow.add_edge("post_tool", "agent")
 
         return workflow.compile()
+
+    def _post_tool_hook(self, state: AgentState) -> dict:
+        """Post-tool hook to update agent state based on tool results.
+
+        This handles state updates for task-related tools:
+        - accept_task: Sets current_agent_task_id
+        - submit_task/abandon_task: Clears current_agent_task_id
+        """
+        messages = state["messages"]
+
+        # Check most recent tool messages for state update signals
+        for msg in reversed(messages):
+            if not isinstance(msg, ToolMessage):
+                continue
+
+            # Parse tool result if it's JSON-like
+            try:
+                content = msg.content
+                if isinstance(content, str):
+                    result = json.loads(content)
+                elif isinstance(content, dict):
+                    result = content
+                else:
+                    continue
+
+                # Check for agent_task_id (from accept_task)
+                if "agent_task_id" in result and result.get("success"):
+                    new_task_id = result["agent_task_id"]
+                    logger.info(f"Agent {self.agent_id} now working on task {new_task_id}")
+                    return {"current_agent_task_id": new_task_id}
+
+                # Check for clear_agent_task_id (from submit_task/abandon_task)
+                if result.get("clear_agent_task_id") and result.get("success"):
+                    logger.info(f"Agent {self.agent_id} cleared task focus")
+                    return {"current_agent_task_id": None}
+
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+        # No state change
+        return {}
 
     def _call_model_with_retry(self, messages: list, max_retries: int = 3) -> AIMessage:
         """Call the model with retry logic for transient errors.
@@ -327,49 +440,42 @@ class Agent:
         return {"messages": [response]}
 
     def _create_tool_node(self) -> ToolNode:
-        """Create a ToolNode that tracks usage."""
-        # We use LangGraph's ToolNode but wrap tools to track usage
-        tracked_tools = [self._wrap_tool_for_tracking(tool) for tool in self.tools]
-        return ToolNode(tracked_tools)
+        """Create a ToolNode with tracked tools."""
+        return ToolNode(self._tools)
 
     def _wrap_tool_for_tracking(self, tool):  # noqa: ANN001, ANN202
-        """Wrap a tool to track its usage in the database."""
+        """Wrap a tool to track its usage in the database.
+
+        Also injects principal_id into tool kwargs since MCP tools expect it.
+        """
         original_func = tool.func
 
         def tracked_wrapper(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-            # Get current task from state (not available here, will be None)
-            # Tool tracking for agent_task_id requires accessing state differently
+            # Inject principal_id if not provided
+            if "principal_id" not in kwargs:
+                kwargs["principal_id"] = self.principal_id
+
             tool_input = str(kwargs) if kwargs else str(args)
 
             # Execute original tool
             result = original_func(*args, **kwargs)
 
-            # Record usage
+            # Record usage - extract server name from tool name if prefixed
+            # MCP tools may be prefixed with server name (e.g., "task__accept_task")
+            tool_name = tool.name
+            server_name = "unknown"
+            if "__" in tool_name:
+                parts = tool_name.split("__", 1)
+                server_name = parts[0]
+                tool_name = parts[1] if len(parts) > 1 else tool_name
+
             session = SessionLocal()
             try:
-                # Look up or create the Tool record
-                db_tool = session.query(Tool).filter(Tool.name == tool.name).first()
-                if not db_tool:
-                    system_principal = (
-                        session.query(Principal).filter(Principal.principal_type == "system").first()
-                    )
-                    if not system_principal:
-                        msg = "No system principal found"
-                        raise ValueError(msg)
-
-                    db_tool = Tool(
-                        name=tool.name,
-                        description=f"Auto-created: {tool.name}",
-                        created_by_principal_id=system_principal.id,
-                        scope="local",
-                    )
-                    session.add(db_tool)
-                    session.flush()
-
                 usage = AgentToolUsage(
                     agent_id=self.agent_id,
-                    tool_id=db_tool.id,
-                    agent_task_id=None,  # Cannot access state from here
+                    server_name=server_name,
+                    tool_name=tool_name,
+                    agent_task_id=None,  # Will be set by state later if needed
                     input=tool_input[:500],
                     output=str(result)[:500],
                     timestamp=datetime.utcnow(),

@@ -16,6 +16,8 @@ dependencies = [
     "uvicorn>=0.24.0",
     "psycopg2-binary>=2.9.0",
     "alembic>=1.13.0",
+    "fastmcp>=2.0.0",
+    "langchain-mcp-adapters>=0.1.0",
 ]
 
 [project.optional-dependencies]

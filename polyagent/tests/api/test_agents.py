@@ -123,12 +123,12 @@ def test_get_agent_balance(client: TestClient, agent_with_balance) -> None:
     assert Decimal(data["balance"]) == Decimal("0.10")
 
 
-def test_get_agent_tools(client: TestClient, agent) -> None:
-    """Test getting tools granted to an agent."""
-    response = client.get(f"/agents/{agent.id}/tools")
+def test_get_agent_servers(client: TestClient, agent) -> None:
+    """Test getting MCP servers granted to an agent."""
+    response = client.get(f"/agents/{agent.id}/servers")
     assert response.status_code == 200
     data = response.json()
-    # Should be a list (possibly empty if no tools granted)
+    # Should be a list (possibly empty if no servers granted in test env)
     assert isinstance(data, list)
 
 
