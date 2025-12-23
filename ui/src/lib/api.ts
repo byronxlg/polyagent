@@ -131,6 +131,16 @@ export interface Tool {
   created_by_principal_id: string;
 }
 
+export interface Server {
+  id: string;
+  name: string;
+  description: string;
+  server_type: 'system' | 'custom';
+  transport: string;
+  is_active: boolean;
+  created_by_principal_id: string;
+}
+
 export type ActivityType = 'agent_task' | 'message' | 'transaction' | 'tool_usage' | 'model_usage';
 
 export interface ActivityItem {
@@ -300,8 +310,8 @@ export const api = {
       const response = await fetch(`${API_BASE_URL}/agents/${id}/balance`);
       return response.json();
     },
-    getTools: async (id: string): Promise<Tool[]> => {
-      const response = await fetch(`${API_BASE_URL}/agents/${id}/tools`);
+    getServers: async (id: string): Promise<Server[]> => {
+      const response = await fetch(`${API_BASE_URL}/agents/${id}/servers`);
       return response.json();
     },
     tick: async (id: string): Promise<{ message: string; result: string }> => {

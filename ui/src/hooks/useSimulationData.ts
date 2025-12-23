@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import type { Agent, Task, Message, AgentTask, Model, Transaction, AgentToolUsage, AgentModelUsage, Tool, Simulation, Principal } from '@/lib/api';
+import type { Agent, Task, Message, AgentTask, Model, Transaction, AgentToolUsage, AgentModelUsage, Server, Simulation, Principal } from '@/lib/api';
 
 export function useSimulationData(refreshTrigger: number) {
   const [simulations, setSimulations] = useState<Simulation[]>([]);
@@ -15,7 +15,7 @@ export function useSimulationData(refreshTrigger: number) {
   const [agentToolUsage, setAgentToolUsage] = useState<AgentToolUsage[]>([]);
   const [agentModelUsage, setAgentModelUsage] = useState<AgentModelUsage[]>([]);
   const [agentBalances, setAgentBalances] = useState<Record<string, string>>({});
-  const [agentTools, setAgentTools] = useState<Record<string, Tool[]>>({});
+  const [agentServers, setAgentServers] = useState<Record<string, Server[]>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -50,17 +50,17 @@ export function useSimulationData(refreshTrigger: number) {
       setAgentModelUsage(modelUsageRes.items);
 
       const balances: Record<string, string> = {};
-      const tools: Record<string, Tool[]> = {};
+      const servers: Record<string, Server[]> = {};
       for (const agent of agentsRes.items) {
-        const [balance, agentToolsData] = await Promise.all([
+        const [balance, agentServersData] = await Promise.all([
           api.agents.getBalance(agent.id),
-          api.agents.getTools(agent.id),
+          api.agents.getServers(agent.id),
         ]);
         balances[agent.id] = balance.balance;
-        tools[agent.id] = agentToolsData;
+        servers[agent.id] = agentServersData;
       }
       setAgentBalances(balances);
-      setAgentTools(tools);
+      setAgentServers(servers);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -134,7 +134,7 @@ export function useSimulationData(refreshTrigger: number) {
     agentToolUsage,
     agentModelUsage,
     agentBalances,
-    agentTools,
+    agentServers,
     isLoading,
     loadData,
     getModelName,
