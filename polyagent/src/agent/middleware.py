@@ -59,7 +59,7 @@ def create_model_usage_tracker(  # noqa: C901, PLR0915
     transaction_service = TransactionService()
 
     @wrap_model_call
-    def _model_usage_tracker(request, handler):  # noqa: ANN001, ANN201
+    def _model_usage_tracker(request, handler):  # noqa: ANN001, ANN202, C901, PLR0915
         # BEFORE: Validate balance > 0
         balance = transaction_service.get_balance(agent_id)
         logger.debug(f"Agent {agent_id} balance check: ${balance}")
@@ -166,7 +166,7 @@ def create_tool_usage_tracker(agent_id: str) -> Callable[[Any, Any], Any]:  # no
     """
 
     @wrap_tool_call
-    def _tool_usage_tracker(request, handler):  # noqa: ANN001, ANN201
+    def _tool_usage_tracker(request, handler):  # noqa: ANN001, ANN202, C901, PLR0912
         # BEFORE: Record tool input
         tool_name = request.tool_call.get("name", "unknown")
         tool_input = str(request.tool_call.get("args", {}))
@@ -196,7 +196,8 @@ def create_tool_usage_tracker(agent_id: str) -> Callable[[Any, Any], Any]:  # no
             if command.update and "messages" in command.update:
                 messages = command.update["messages"]
                 if messages and len(messages) > 0:
-                    output_content = messages[0].content if hasattr(messages[0], "content") else str(messages[0])
+                    first_msg = messages[0]
+                    output_content = first_msg.content if hasattr(first_msg, "content") else str(first_msg)
             if not output_content:
                 output_content = str(command)
         elif hasattr(result, "content"):
