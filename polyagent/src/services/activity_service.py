@@ -45,46 +45,36 @@ class ActivityService:
         if "message" in types:
             # Join with Agent to convert from_principal_id to agent_id
             from_agent = Agent
-            msg_query = (
-                self.db.query(
-                    Message.id.label("entity_id"),
-                    literal("message").label("type"),
-                    Message.sent_at.label("timestamp"),
-                    from_agent.id.label("agent_id"),
-                )
-                .join(from_agent, from_agent.principal_id == Message.from_principal_id)
-            )
+            msg_query = self.db.query(
+                Message.id.label("entity_id"),
+                literal("message").label("type"),
+                Message.sent_at.label("timestamp"),
+                from_agent.id.label("agent_id"),
+            ).join(from_agent, from_agent.principal_id == Message.from_principal_id)
             if agent_id is not None:
                 # Need to check if agent is sender OR recipient
                 # Join with Agent table twice to get both sender and recipient agent IDs
                 to_agent = Agent.__table__.alias("to_agent")
                 msg_query = msg_query.outerjoin(
                     to_agent, to_agent.c.principal_id == Message.to_principal_id
-                ).filter(
-                    (from_agent.id == agent_id) | (to_agent.c.id == agent_id)
-                )
+                ).filter((from_agent.id == agent_id) | (to_agent.c.id == agent_id))
             subqueries.append(msg_query)
 
         if "transaction" in types:
             # Join with Agent to convert from_principal_id to agent_id
             from_agent = Agent
-            tx_query = (
-                self.db.query(
-                    Transaction.id.label("entity_id"),
-                    literal("transaction").label("type"),
-                    Transaction.timestamp.label("timestamp"),
-                    from_agent.id.label("agent_id"),
-                )
-                .outerjoin(from_agent, from_agent.principal_id == Transaction.from_principal_id)
-            )
+            tx_query = self.db.query(
+                Transaction.id.label("entity_id"),
+                literal("transaction").label("type"),
+                Transaction.timestamp.label("timestamp"),
+                from_agent.id.label("agent_id"),
+            ).outerjoin(from_agent, from_agent.principal_id == Transaction.from_principal_id)
             if agent_id is not None:
                 # Need to check if agent is sender OR recipient
                 to_agent = Agent.__table__.alias("to_agent")
                 tx_query = tx_query.outerjoin(
                     to_agent, to_agent.c.principal_id == Transaction.to_principal_id
-                ).filter(
-                    (from_agent.id == agent_id) | (to_agent.c.id == agent_id)
-                )
+                ).filter((from_agent.id == agent_id) | (to_agent.c.id == agent_id))
             subqueries.append(tx_query)
 
         if "tool_usage" in types:
@@ -119,13 +109,7 @@ class ActivityService:
         total = self.db.query(combined).count()
 
         # Get paginated results ordered by timestamp desc
-        rows = (
-            self.db.query(combined)
-            .order_by(desc(combined.c.timestamp))
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        rows = self.db.query(combined).order_by(desc(combined.c.timestamp)).offset(offset).limit(limit).all()
 
         # Fetch full entity data for each row
         items = []
@@ -134,13 +118,15 @@ class ActivityService:
             entity_type = row.type
             data = self._fetch_entity_data(entity_type, entity_id)
             if data:
-                items.append({
-                    "id": f"{entity_type[:2]}-{entity_id}",
-                    "type": entity_type,
-                    "timestamp": row.timestamp.isoformat() if row.timestamp else None,
-                    "agent_id": row.agent_id,
-                    "data": data,
-                })
+                items.append(
+                    {
+                        "id": f"{entity_type[:2]}-{entity_id}",
+                        "type": entity_type,
+                        "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+                        "agent_id": row.agent_id,
+                        "data": data,
+                    }
+                )
 
         return items, total
 

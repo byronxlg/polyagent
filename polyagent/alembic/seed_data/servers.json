@@ -88,5 +88,14 @@
     "command": "uv",
     "args": ["run", "python", "-m", "src.mcp_servers.servers.trigger_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
+  },
+  {
+    "name": "think",
+    "description": "Internal reasoning tool: think through problems step by step without executing actions.",
+    "server_type": "system",
+    "transport": "stdio",
+    "command": "uv",
+    "args": ["run", "python", "-m", "src.mcp_servers.servers.think_server"],
+    "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   }
 ]

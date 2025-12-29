@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session, selectinload
@@ -136,9 +136,7 @@ def create_principal(principal: PrincipalCreate, db: Session = Depends(get_db)) 
 
 
 @app.get("/principals", response_model=PaginatedResponse[PrincipalResponse], tags=["Principals"])
-def list_principals(
-    limit: int = DEFAULT_LIMIT, offset: int = 0, db: Session = Depends(get_db)
-) -> dict:
+def list_principals(limit: int = DEFAULT_LIMIT, offset: int = 0, db: Session = Depends(get_db)) -> dict:
     total = db.query(Principal).count()
     principals = db.query(Principal).order_by(Principal.id.desc()).limit(limit).offset(offset).all()
     return {
@@ -173,9 +171,7 @@ def create_simulation(simulation: SimulationCreate, db: Session = Depends(get_db
 
 
 @app.get("/simulations", response_model=PaginatedResponse[SimulationResponse], tags=["Simulations"])
-def list_simulations(
-    limit: int = DEFAULT_LIMIT, offset: int = 0, db: Session = Depends(get_db)
-) -> dict:
+def list_simulations(limit: int = DEFAULT_LIMIT, offset: int = 0, db: Session = Depends(get_db)) -> dict:
     total = db.query(Simulation).count()
     items = db.query(Simulation).offset(offset).limit(limit).all()
     return {
@@ -226,9 +222,7 @@ def delete_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> dic
     # Check if any tasks exist in this simulation
     task_count = db.query(Task).filter(Task.simulation_id == simulation_id).count()
     if task_count > 0:
-        raise HTTPException(
-            status_code=400, detail=f"Cannot delete simulation: {task_count} tasks exist in it"
-        )
+        raise HTTPException(status_code=400, detail=f"Cannot delete simulation: {task_count} tasks exist in it")
     db.delete(simulation)
     db.commit()
     return {"message": "Simulation deleted"}
@@ -244,9 +238,7 @@ def create_model(model: ModelCreate, db: Session = Depends(get_db)) -> Model:
 
 
 @app.get("/models", response_model=PaginatedResponse[ModelResponse], tags=["Models"])
-def list_models(
-    limit: int = DEFAULT_LIMIT, offset: int = 0, db: Session = Depends(get_db)
-) -> dict:
+def list_models(limit: int = DEFAULT_LIMIT, offset: int = 0, db: Session = Depends(get_db)) -> dict:
     total = db.query(Model).count()
     items = db.query(Model).offset(offset).limit(limit).all()
     return {
@@ -343,9 +335,7 @@ def create_agent(agent: AgentCreate, db: Session = Depends(get_db)) -> Agent:
 
 
 @app.get("/agents", response_model=PaginatedResponse[AgentResponse], tags=["Agents"])
-def list_agents(
-    limit: int = DEFAULT_LIMIT, offset: int = 0, db: Session = Depends(get_db)
-) -> dict:
+def list_agents(limit: int = DEFAULT_LIMIT, offset: int = 0, db: Session = Depends(get_db)) -> dict:
     total = db.query(Agent).count()
     items = db.query(Agent).offset(offset).limit(limit).all()
     return {
@@ -395,8 +385,7 @@ def delete_agent(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str
         | (Transaction.to_principal_id == agent.principal_id)
     ).delete(synchronize_session=False)
     db.query(Message).filter(
-        (Message.from_principal_id == agent.principal_id)
-        | (Message.to_principal_id == agent.principal_id)
+        (Message.from_principal_id == agent.principal_id) | (Message.to_principal_id == agent.principal_id)
     ).delete(synchronize_session=False)
     db.query(AgentTask).filter(AgentTask.agent_id == agent_id).delete()
     db.query(AgentServer).filter(AgentServer.agent_id == agent_id).delete()
@@ -622,8 +611,7 @@ def list_messages(
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
         query = query.filter(
-            (Message.from_principal_id == agent.principal_id)
-            | (Message.to_principal_id == agent.principal_id)
+            (Message.from_principal_id == agent.principal_id) | (Message.to_principal_id == agent.principal_id)
         )
     total = query.count()
     items = query.order_by(Message.sent_at.desc()).offset(offset).limit(limit).all()
@@ -788,7 +776,7 @@ def get_activity(
 
 
 @app.get("/simulations/{simulation_id}/config", response_model=SimulationConfigResponse, tags=["Triggers"])
-def get_simulation_config(simulation_id: UUID, db: Session = Depends(get_db)) -> SimulationConfig:
+def get_simulation_config(simulation_id: UUID, _db: Session = Depends(get_db)) -> SimulationConfig:
     """Get simulation configuration including pause state."""
     config_service = SimulationConfigService()
     return config_service.get_or_create_config(simulation_id)
@@ -825,8 +813,9 @@ def resume_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> Sim
 @app.get("/agents/{agent_id}/triggers", response_model=list[AgentTriggerResponse], tags=["Triggers"])
 def list_agent_triggers(
     agent_id: UUID,
-    include_inactive: bool = False,
     db: Session = Depends(get_db),
+    *,
+    include_inactive: bool = Query(default=False),
 ) -> list[AgentTrigger]:
     """List an agent's trigger subscriptions."""
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
