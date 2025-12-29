@@ -43,7 +43,7 @@ jobs:
         env:
           POSTGRES_USER: agent
           POSTGRES_PASSWORD: agent
-          POSTGRES_DB: agent_civilisation
+          POSTGRES_DB: polyagent
         ports:
           - 5432:5432
         options: >-
@@ -68,5 +68,5 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql://agent:agent@localhost:5432/agent_civilisation
+          DATABASE_URL: postgresql://agent:agent@localhost:5432/polyagent
         run: uv run pytest --tb=short
