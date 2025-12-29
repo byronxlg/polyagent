@@ -202,9 +202,7 @@ class TriggerWorker:
 
         return changes
 
-    def _record_to_dict(
-        self, record: Task | Message | AgentTask | Transaction, table_name: str
-    ) -> dict:
+    def _record_to_dict(self, record: Task | Message | AgentTask | Transaction, table_name: str) -> dict:
         """Convert a database record to a dict for condition matching."""
         data = {
             "id": record.id,

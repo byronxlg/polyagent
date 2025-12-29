@@ -295,9 +295,7 @@ class SimulationConfigService:
         session = SessionLocal()
         try:
             config = (
-                session.query(SimulationConfig)
-                .filter(SimulationConfig.simulation_id == simulation_id)
-                .first()
+                session.query(SimulationConfig).filter(SimulationConfig.simulation_id == simulation_id).first()
             )
             if not config:
                 # Verify simulation exists
@@ -363,15 +361,9 @@ class SimulationConfigService:
         config = self.get_or_create_config(simulation_id)
         return config.is_paused
 
-    def _get_or_create_config_in_session(
-        self, session: Session, simulation_id: UUID | str
-    ) -> SimulationConfig:
+    def _get_or_create_config_in_session(self, session: Session, simulation_id: UUID | str) -> SimulationConfig:
         """Get or create config within an existing session."""
-        config = (
-            session.query(SimulationConfig)
-            .filter(SimulationConfig.simulation_id == simulation_id)
-            .first()
-        )
+        config = session.query(SimulationConfig).filter(SimulationConfig.simulation_id == simulation_id).first()
         if not config:
             simulation = session.query(Simulation).filter(Simulation.id == simulation_id).first()
             if not simulation:

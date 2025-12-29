@@ -173,9 +173,7 @@ class Message(Base):
     sent_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     received_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    sender: Mapped["Principal"] = relationship(
-        back_populates="sent_messages", foreign_keys=[from_principal_id]
-    )
+    sender: Mapped["Principal"] = relationship(back_populates="sent_messages", foreign_keys=[from_principal_id])
     recipient: Mapped["Principal"] = relationship(
         back_populates="received_messages", foreign_keys=[to_principal_id]
     )

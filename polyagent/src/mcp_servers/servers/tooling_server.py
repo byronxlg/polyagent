@@ -41,10 +41,7 @@ def _validate_server_code(code: str) -> tuple[bool, str]:
     try:
         tree = ast.parse(code)
     except SyntaxError as e:
-        return False, (
-            f"Syntax error: {e}. "
-            "Use get_server_template to see the required structure."
-        )
+        return False, (f"Syntax error: {e}. Use get_server_template to see the required structure.")
 
     # Check for mcp = FastMCP(...) pattern
     has_mcp_init = False
@@ -89,16 +86,12 @@ def _load_and_validate_module(module_path: str, file_path: Path) -> tuple[bool, 
         if not hasattr(module, "mcp"):
             file_path.unlink()
             return False, (
-                "Module must export 'mcp' object. "
-                "Use get_server_template to see the required structure."
+                "Module must export 'mcp' object. Use get_server_template to see the required structure."
             )
         return True, None
     except (ImportError, AttributeError, TypeError) as e:
         file_path.unlink()
-        return False, (
-            f"Failed to load server: {e}. "
-            "Use get_server_template to see the required structure."
-        )
+        return False, (f"Failed to load server: {e}. Use get_server_template to see the required structure.")
 
 
 @mcp.tool()

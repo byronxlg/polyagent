@@ -42,9 +42,7 @@ class ServerService:
         finally:
             session.close()
 
-    def list_servers(
-        self, server_type: str | None = None, *, is_active: bool = True
-    ) -> list[Server]:
+    def list_servers(self, server_type: str | None = None, *, is_active: bool = True) -> list[Server]:
         """List all servers, optionally filtered by type and active status."""
         session = SessionLocal()
         try:
@@ -65,10 +63,7 @@ class ServerService:
         session = SessionLocal()
         try:
             results = (
-                session.query(Server.name)
-                .join(AgentServer)
-                .filter(AgentServer.agent_id == agent_id)
-                .all()
+                session.query(Server.name).join(AgentServer).filter(AgentServer.agent_id == agent_id).all()
             )
             return {r.name for r in results}
         finally:
@@ -137,9 +132,7 @@ class ServerService:
         session = SessionLocal()
         try:
             servers = (
-                session.query(Server)
-                .filter(Server.server_type == "system", Server.is_active.is_(True))
-                .all()
+                session.query(Server).filter(Server.server_type == "system", Server.is_active.is_(True)).all()
             )
             granted = []
             for server in servers:
