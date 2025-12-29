@@ -15,5 +15,48 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build: ./polyagent
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://agent:agent@db:5432/polyagent
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: >
+      sh -c "python -m alembic upgrade head &&
+             python -m uvicorn src.api:app --host 0.0.0.0 --port 8000"
+
+  ui:
+    build: ./ui
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Optional: Trigger worker for automatic agent execution
+  worker:
+    build: ./polyagent
+    environment:
+      DATABASE_URL: postgresql://agent:agent@db:5432/polyagent
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    command: python -m src.worker
+    profiles:
+      - worker
+
 volumes:
   postgres_data:

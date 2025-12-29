@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 from src.agent.agent import Agent as AgentExecutor
@@ -87,6 +89,16 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+@app.get("/health")
+def health_check(db: Session = Depends(get_db)) -> dict:
+    """Health check endpoint for container orchestration."""
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "healthy"}
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="Database unavailable") from None
 
 
 @app.on_event("startup")
