@@ -436,25 +436,32 @@ class AgentTriggerResponse(BaseModel):
         return dt.isoformat() + "Z" if dt else None
 
 
-class AgentTriggerEventResponse(BaseModel):
+class AgentRunResponse(BaseModel):
+    """Response schema for agent execution runs."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    trigger_id: UUID
     agent_id: UUID
-    table_name: str
-    record_id: UUID
-    change_type: str
-    matched_conditions: dict | None
+    trigger_id: UUID | None = None
+    table_name: str | None = None
+    record_id: UUID | None = None
+    change_type: str | None = None
+    matched_conditions: dict | None = None
     agent_executed: bool
-    execution_started_at: datetime | None = None
-    execution_completed_at: datetime | None = None
-    execution_error: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error: str | None = None
+    final_response: dict | None = None
     created_at: datetime
 
-    @field_serializer("created_at", "execution_started_at", "execution_completed_at")
+    @field_serializer("created_at", "started_at", "completed_at")
     def serialize_dt(self, dt: datetime | None) -> str | None:
         return dt.isoformat() + "Z" if dt else None
+
+
+# Backwards compatibility alias
+AgentTriggerEventResponse = AgentRunResponse
 
 
 class SimulationConfigResponse(BaseModel):

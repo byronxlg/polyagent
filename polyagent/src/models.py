@@ -297,30 +297,43 @@ class AgentTrigger(Base):
 
     agent: Mapped["Agent"] = relationship(back_populates="triggers")
     simulation: Mapped["Simulation"] = relationship(back_populates="triggers")
-    trigger_events: Mapped[list["AgentTriggerEvent"]] = relationship(back_populates="trigger")
+    runs: Mapped[list["AgentRun"]] = relationship(back_populates="trigger")
 
 
-class AgentTriggerEvent(Base):
-    """Audit log of trigger activations."""
+class AgentRun(Base):
+    """Record of agent execution runs.
 
-    __tablename__ = "agent_trigger_events"
+    Each run can be:
+    - Triggered by an AgentTrigger (trigger_id set)
+    - Manual/API invoked (trigger_id null)
+    """
+
+    __tablename__ = "agent_runs"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
     )
-    trigger_id: Mapped[UUID] = mapped_column(ForeignKey("agent_triggers.id"), nullable=False, index=True)
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
-    table_name: Mapped[str] = mapped_column(String, nullable=False)
-    record_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
-    change_type: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Trigger-related fields (nullable for manual runs)
+    trigger_id: Mapped[UUID | None] = mapped_column(ForeignKey("agent_triggers.id"), nullable=True, index=True)
+    table_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    record_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+    change_type: Mapped[str | None] = mapped_column(String, nullable=True)
     matched_conditions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Execution tracking
     agent_executed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    execution_completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    execution_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Structured output from agent
+    final_response: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, index=True)
 
-    trigger: Mapped["AgentTrigger"] = relationship(back_populates="trigger_events")
+    trigger: Mapped["AgentTrigger | None"] = relationship(back_populates="runs")
     agent: Mapped["Agent"] = relationship()
 
 

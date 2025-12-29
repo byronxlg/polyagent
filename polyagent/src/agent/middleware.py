@@ -1,3 +1,12 @@
+"""Middleware for tracking agent model and tool usage.
+
+These middleware components intercept model and tool calls to:
+- Track usage (tokens, costs)
+- Validate balance before model calls
+- Record usage to the database
+- Deduct costs from agent balance
+"""
+
 import logging
 from datetime import datetime
 from decimal import Decimal
@@ -15,8 +24,7 @@ logger = logging.getLogger(__name__)
 
 @wrap_model_call
 def model_usage_tracker(request, handler):  # noqa: ANN001, ANN201, C901, PLR0915
-    """
-    Middleware to track model usage, calculate costs, and deduct from agent balance.
+    """Middleware to track model usage, calculate costs, and deduct from agent balance.
 
     Wraps model calls to:
     - Validate agent has positive balance before call
@@ -127,8 +135,7 @@ def model_usage_tracker(request, handler):  # noqa: ANN001, ANN201, C901, PLR091
 
 @wrap_tool_call
 def tool_usage_tracker(request, handler):  # noqa: ANN001, ANN201, C901, PLR0912
-    """
-    Middleware to track tool usage.
+    """Middleware to track tool usage.
 
     Wraps tool calls to:
     - Record tool input
@@ -212,7 +219,7 @@ def tool_usage_tracker(request, handler):  # noqa: ANN001, ANN201, C901, PLR0912
     return result
 
 
-def before_agent(agent_id: int) -> None:
+def before_agent(agent_id: str) -> None:
     """Set is_running=True before agent execution starts."""
     session = SessionLocal()
     try:
@@ -225,7 +232,7 @@ def before_agent(agent_id: int) -> None:
         session.close()
 
 
-def after_agent(agent_id: int, final_message: str | None = None) -> None:
+def after_agent(agent_id: str, final_message: str | None = None) -> None:
     """Set is_running=False and capture final message to memory after agent execution completes.
 
     Args:

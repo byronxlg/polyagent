@@ -15,11 +15,11 @@ from src.database import SessionLocal
 from src.models import (
     Agent,
     AgentModelUsage,
+    AgentRun,
     AgentServer,
     AgentTask,
     AgentToolUsage,
     AgentTrigger,
-    AgentTriggerEvent,
     Message,
     Model,
     Principal,
@@ -34,9 +34,9 @@ from src.schemas import (
     AgentCreate,
     AgentModelUsageResponse,
     AgentResponse,
+    AgentRunResponse,
     AgentTaskResponse,
     AgentToolUsageResponse,
-    AgentTriggerEventResponse,
     AgentTriggerResponse,
     AgentUpdate,
     MessageCreate,
@@ -390,8 +390,8 @@ def delete_agent(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str
     ).delete(synchronize_session=False)
     db.query(AgentTask).filter(AgentTask.agent_id == agent_id).delete()
     db.query(AgentServer).filter(AgentServer.agent_id == agent_id).delete()
-    # Delete trigger events first (references agent_triggers), then triggers
-    db.query(AgentTriggerEvent).filter(AgentTriggerEvent.agent_id == agent_id).delete()
+    # Delete agent runs first (references agent_triggers), then triggers
+    db.query(AgentRun).filter(AgentRun.agent_id == agent_id).delete()
     db.query(AgentTrigger).filter(AgentTrigger.agent_id == agent_id).delete()
     db.delete(agent)
     db.commit()
@@ -829,23 +829,23 @@ def list_agent_triggers(
 
 
 @app.get(
-    "/trigger-events",
-    response_model=PaginatedResponse[AgentTriggerEventResponse],
+    "/agent-runs",
+    response_model=PaginatedResponse[AgentRunResponse],
     tags=["Triggers"],
 )
-def list_trigger_events(
+def list_agent_runs(
     agent_id: UUID | None = None,
     limit: int = DEFAULT_LIMIT,
     offset: int = 0,
     db: Session = Depends(get_db),
 ) -> dict:
-    """List recent trigger events for debugging and monitoring."""
-    query = db.query(AgentTriggerEvent)
+    """List recent agent execution runs for debugging and monitoring."""
+    query = db.query(AgentRun)
     if agent_id:
-        query = query.filter(AgentTriggerEvent.agent_id == agent_id)
+        query = query.filter(AgentRun.agent_id == agent_id)
 
     total = query.count()
-    items = query.order_by(AgentTriggerEvent.created_at.desc()).offset(offset).limit(limit).all()
+    items = query.order_by(AgentRun.created_at.desc()).offset(offset).limit(limit).all()
 
     return {
         "items": items,

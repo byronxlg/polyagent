@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from src.database import SessionLocal
-from src.models import Agent, AgentTrigger, AgentTriggerEvent, Simulation, SimulationConfig
+from src.models import Agent, AgentRun, AgentTrigger, Simulation, SimulationConfig
 from src.schemas import TriggerChangeType, TriggerTableName
 
 
@@ -201,24 +201,33 @@ class TriggerService:
             session.close()
 
 
-class TriggerEventService:
-    """Service for tracking trigger event history."""
+class AgentRunService:
+    """Service for tracking agent execution runs."""
 
-    def record_trigger_event(  # noqa: PLR0913
+    def create_run(  # noqa: PLR0913
         self,
-        trigger_id: UUID | str,
         agent_id: UUID | str,
-        table_name: str,
-        record_id: UUID | str,
-        change_type: str,
+        trigger_id: UUID | str | None = None,
+        table_name: str | None = None,
+        record_id: UUID | str | None = None,
+        change_type: str | None = None,
         matched_conditions: dict | None = None,
-    ) -> AgentTriggerEvent:
-        """Record a triggered event."""
+    ) -> AgentRun:
+        """Create a new agent run record.
+
+        Args:
+            agent_id: The agent being run
+            trigger_id: Optional trigger that caused this run (None for manual runs)
+            table_name: Table that triggered the run
+            record_id: Record that triggered the run
+            change_type: Type of change that triggered the run
+            matched_conditions: Conditions that matched
+        """
         session = SessionLocal()
         try:
-            event = AgentTriggerEvent(
-                trigger_id=trigger_id,
+            run = AgentRun(
                 agent_id=agent_id,
+                trigger_id=trigger_id,
                 table_name=table_name,
                 record_id=record_id,
                 change_type=change_type,
@@ -226,65 +235,78 @@ class TriggerEventService:
                 agent_executed=False,
                 created_at=datetime.utcnow(),
             )
-            session.add(event)
+            session.add(run)
             session.commit()
-            session.refresh(event)
-            session.expunge(event)
-            return event
+            session.refresh(run)
+            session.expunge(run)
+            return run
         except Exception:
             session.rollback()
             raise
         finally:
             session.close()
 
-    def mark_execution_started(self, event_id: UUID | str) -> None:
+    def mark_started(self, run_id: UUID | str) -> None:
         """Mark that agent execution has started."""
         session = SessionLocal()
         try:
-            event = session.query(AgentTriggerEvent).filter(AgentTriggerEvent.id == event_id).first()
-            if event:
-                event.agent_executed = True
-                event.execution_started_at = datetime.utcnow()
+            run = session.query(AgentRun).filter(AgentRun.id == run_id).first()
+            if run:
+                run.agent_executed = True
+                run.started_at = datetime.utcnow()
                 session.commit()
         finally:
             session.close()
 
-    def mark_execution_completed(
+    def mark_completed(
         self,
-        event_id: UUID | str,
+        run_id: UUID | str,
         error: str | None = None,
+        final_response: dict | None = None,
     ) -> None:
-        """Mark that agent execution has completed."""
+        """Mark that agent execution has completed.
+
+        Args:
+            run_id: The run to update
+            error: Optional error message if run failed
+            final_response: Optional structured response from agent
+        """
         session = SessionLocal()
         try:
-            event = session.query(AgentTriggerEvent).filter(AgentTriggerEvent.id == event_id).first()
-            if event:
-                event.execution_completed_at = datetime.utcnow()
+            run = session.query(AgentRun).filter(AgentRun.id == run_id).first()
+            if run:
+                run.completed_at = datetime.utcnow()
                 if error:
-                    event.execution_error = error[:1000]  # Truncate long errors
+                    run.error = error[:1000]  # Truncate long errors
+                if final_response:
+                    run.final_response = final_response
                 session.commit()
         finally:
             session.close()
 
-    def get_recent_events(
+    def get_recent_runs(
         self,
         agent_id: UUID | str | None = None,
         simulation_id: UUID | str | None = None,  # noqa: ARG002 - reserved for future use
         limit: int = 50,
-    ) -> list[AgentTriggerEvent]:
-        """Get recent trigger events."""
+    ) -> list[AgentRun]:
+        """Get recent agent runs."""
         session = SessionLocal()
         try:
-            query = session.query(AgentTriggerEvent)
+            query = session.query(AgentRun)
             if agent_id:
-                query = query.filter(AgentTriggerEvent.agent_id == agent_id)
+                query = query.filter(AgentRun.agent_id == agent_id)
             # TODO(byron): Add simulation filtering when needed (requires join with triggers)  # noqa: TD003
-            events = query.order_by(AgentTriggerEvent.created_at.desc()).limit(limit).all()
-            for e in events:
-                session.expunge(e)
-            return events
+            runs = query.order_by(AgentRun.created_at.desc()).limit(limit).all()
+            for r in runs:
+                session.expunge(r)
+            return runs
         finally:
             session.close()
+
+
+# Backwards compatibility alias
+TriggerEventService = AgentRunService
 
 
 class SimulationConfigService:
