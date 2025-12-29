@@ -120,7 +120,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "PLC0415", # Allow imports not at top level
     "D",       # Don't require docstrings in tests
 ]
-"src/mcp/**/*.py" = [
+"src/mcp_servers/**/*.py" = [
     "ARG001",  # principal_id is always passed to tools but not always used
     "BLE001",  # Tools need broad exception handling for graceful error responses
     "C901",    # Code validation functions need complexity for AST checking

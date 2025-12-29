@@ -8,11 +8,13 @@ and executes agents whose triggers match.
 import logging
 import signal
 import time
+import types
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-from typing import Any
 from uuid import UUID
+
+from sqlalchemy.orm import Session
 
 from src.agent.agent import Agent as AgentExecutor
 from src.database import SessionLocal
@@ -74,7 +76,7 @@ class TriggerWorker:
         signal.signal(signal.SIGTERM, self._handle_shutdown)
         signal.signal(signal.SIGINT, self._handle_shutdown)
 
-    def _handle_shutdown(self, signum: int, frame: Any) -> None:
+    def _handle_shutdown(self, signum: int, _frame: types.FrameType | None) -> None:
         """Handle shutdown signals gracefully."""
         logger.info(f"Received signal {signum}, initiating graceful shutdown...")
         self.shutdown_flag = True
@@ -114,11 +116,7 @@ class TriggerWorker:
         try:
             # Get all active simulations that are not paused
             simulations = session.query(Simulation).all()
-            active_sim_ids = []
-
-            for sim in simulations:
-                if not self.config_service.is_paused(sim.id):
-                    active_sim_ids.append(sim.id)
+            active_sim_ids = [sim.id for sim in simulations if not self.config_service.is_paused(sim.id)]
 
             if not active_sim_ids:
                 self.last_poll_time = current_time
@@ -146,9 +144,11 @@ class TriggerWorker:
                 changes = self._detect_changes(session, table_name, self.last_poll_time)
 
                 for change in changes:
-                    for trigger in table_triggers:
-                        if self._matches_trigger(change, trigger):
-                            agents_to_trigger.append((trigger.agent_id, trigger, change))
+                    agents_to_trigger.extend(
+                        (trigger.agent_id, trigger, change)
+                        for trigger in table_triggers
+                        if self._matches_trigger(change, trigger)
+                    )
 
             # Deduplicate: only trigger each agent once per cycle
             seen_agents: set[UUID] = set()
@@ -170,7 +170,7 @@ class TriggerWorker:
 
     def _detect_changes(
         self,
-        session: Any,
+        session: Session,
         table_name: str,
         since: datetime | None,
     ) -> list[dict]:
@@ -198,11 +198,13 @@ class TriggerWorker:
 
         # For UPDATE detection, we'd need updated_at columns on tables
         # This is a simplification - we only detect INSERTs for now
-        # TODO: Add UPDATE detection when updated_at columns are added
+        # TODO(byron): Add UPDATE detection when updated_at columns are added  # noqa: TD003
 
         return changes
 
-    def _record_to_dict(self, record: Any, table_name: str) -> dict:
+    def _record_to_dict(
+        self, record: Task | Message | AgentTask | Transaction, table_name: str
+    ) -> dict:
         """Convert a database record to a dict for condition matching."""
         data = {
             "id": record.id,

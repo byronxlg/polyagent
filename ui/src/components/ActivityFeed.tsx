@@ -20,7 +20,7 @@ function formatJSON(value: string): string {
     // If not valid JSON, try to evaluate as Python dict/literal
     try {
       // Replace Python syntax with JSON syntax more aggressively
-      let jsonLike = value
+      const jsonLike = value
         // Replace single quotes with double quotes (but be careful with quotes inside strings)
         .replace(/'/g, '"')
         // Replace Python boolean/null values
@@ -33,10 +33,10 @@ function formatJSON(value: string): string {
 
       const parsed = JSON.parse(jsonLike);
       return JSON.stringify(parsed, null, 2);
-    } catch (e) {
+    } catch {
       // If all parsing fails, try basic pretty printing with line breaks
       try {
-        let formatted = value
+        const formatted = value
           .replace(/,\s*/g, ',\n  ')
           .replace(/\{/g, '{\n  ')
           .replace(/\}/g, '\n}')
