@@ -35,7 +35,6 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
-        continue-on-error: true  # TODO: Fix pre-existing lint errors and remove this
 
   build:
     name: Build

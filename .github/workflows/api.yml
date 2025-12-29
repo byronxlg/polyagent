@@ -20,7 +20,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    continue-on-error: true  # TODO: Fix pre-existing lint errors and remove this
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +37,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    continue-on-error: true  # TODO: Fix test seed data issues and remove this
     services:
       postgres:
         image: postgres:15

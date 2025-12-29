@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, selectinload
 
@@ -777,7 +777,7 @@ def get_activity(
 
 
 @app.get("/simulations/{simulation_id}/config", response_model=SimulationConfigResponse, tags=["Triggers"])
-def get_simulation_config(simulation_id: UUID, db: Session = Depends(get_db)) -> SimulationConfig:
+def get_simulation_config(simulation_id: UUID, _db: Session = Depends(get_db)) -> SimulationConfig:
     """Get simulation configuration including pause state."""
     config_service = SimulationConfigService()
     return config_service.get_or_create_config(simulation_id)
@@ -814,8 +814,9 @@ def resume_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> Sim
 @app.get("/agents/{agent_id}/triggers", response_model=list[AgentTriggerResponse], tags=["Triggers"])
 def list_agent_triggers(
     agent_id: UUID,
-    include_inactive: bool = False,
     db: Session = Depends(get_db),
+    *,
+    include_inactive: bool = Query(default=False),
 ) -> list[AgentTrigger]:
     """List an agent's trigger subscriptions."""
     agent = db.query(Agent).filter(Agent.id == agent_id).first()

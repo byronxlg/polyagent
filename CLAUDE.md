@@ -113,6 +113,37 @@ git worktree remove ../polyagent-foo
 - PRs should have a clear title and description
 - Link to any related issues if applicable
 
+### Commenting on Pull Requests
+
+When leaving comments on PRs (reviews, issue comments, or general feedback):
+
+1. **Structured Format**: Use clear headers and bullet points. Keep comments focused and scannable.
+
+2. **Reply Threading**: When addressing a specific comment or issue raised by someone, use `gh api` to reply to that comment rather than creating a new top-level comment:
+   ```bash
+   # Reply to a specific comment
+   gh api repos/OWNER/REPO/pulls/PR_NUMBER/comments/COMMENT_ID/replies \
+     -f body="Your reply here"
+   ```
+
+3. **Wait for CI**: Before claiming a fix is complete, wait for GitHub Actions to pass:
+   ```bash
+   # Check workflow status
+   gh run list --limit 5
+
+   # Watch a specific run
+   gh run watch RUN_ID
+   ```
+   Only state something is "fixed" after CI confirms it passes.
+
+4. **Signature**: End all PR comments with the Claude Code signature:
+   ```
+   ---
+   Generated with [Claude Code](https://claude.com/claude-code)
+   ```
+
+5. **Concise Updates**: Avoid overly verbose explanations. State what changed and why briefly.
+
 ## High-Level Architecture
 
 ### Backend (polyagent/)
