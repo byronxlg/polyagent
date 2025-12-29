@@ -137,7 +137,7 @@ def unsubscribe_from_trigger(principal_id: str, trigger_id: str) -> dict:
     Returns:
         {"success": bool, "message": str}
     """
-    _, trigger, error = _authorize_trigger_access(principal_id, trigger_id)
+    _, _trigger, error = _authorize_trigger_access(principal_id, trigger_id)
     if error:
         return error
 
@@ -237,7 +237,7 @@ def update_trigger_conditions(
     Returns:
         {"success": bool, "trigger": dict, "message": str}
     """
-    _, trigger, error = _authorize_trigger_access(principal_id, trigger_id)
+    _, _trigger, error = _authorize_trigger_access(principal_id, trigger_id)
     if error:
         return error
 
@@ -267,7 +267,7 @@ def delete_trigger(principal_id: str, trigger_id: str) -> dict:
     Returns:
         {"success": bool, "message": str}
     """
-    _, trigger, error = _authorize_trigger_access(principal_id, trigger_id)
+    _, _trigger, error = _authorize_trigger_access(principal_id, trigger_id)
     if error:
         return error
 
