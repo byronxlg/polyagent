@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable react-refresh/only-export-components -- shadcn pattern exports components + contexts */
 
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
@@ -606,8 +607,9 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%.
+  // Random width between 50 to 90% for visual variety in skeleton loading
   const width = React.useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity -- intentional randomness for skeleton visual variety
     return `${Math.floor(Math.random() * 40) + 50}%`
   }, [])
 

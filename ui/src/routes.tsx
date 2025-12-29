@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- route file exports router config + internal components */
 import {
   createRootRoute,
   createRoute,

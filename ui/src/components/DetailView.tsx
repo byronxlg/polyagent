@@ -640,12 +640,15 @@ export function DetailView({
           setPrincipal(principalData);
         } catch (error) {
           console.error('Failed to load principal:', error);
+          setPrincipal(null);
         }
       };
       loadPrincipal();
-    } else {
+    } else if (principal !== null) {
+      // Only update state if it would actually change
       setPrincipal(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- principal check prevents infinite loops
   }, [selected]);
 
   if (!selected) return null;

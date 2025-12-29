@@ -48,7 +48,8 @@ class TriggerService:
             # Get agent to find simulation_id
             agent = session.query(Agent).filter(Agent.id == agent_id).first()
             if not agent:
-                raise ValueError(f"Agent {agent_id} not found")
+                msg = f"Agent {agent_id} not found"
+                raise ValueError(msg)
 
             # Check for existing active trigger with same params
             existing = (
@@ -62,10 +63,11 @@ class TriggerService:
                 .first()
             )
             if existing:
-                raise ValueError(
+                msg = (
                     f"Duplicate trigger exists (id={existing.id}). "
                     "Deactivate it first or use a different table/change_type."
                 )
+                raise ValueError(msg)
 
             trigger = AgentTrigger(
                 agent_id=agent_id,
@@ -102,6 +104,7 @@ class TriggerService:
         self,
         agent_id: UUID | str | None = None,
         simulation_id: UUID | str | None = None,
+        *,
         is_active: bool | None = True,
     ) -> list[AgentTrigger]:
         """List trigger subscriptions with optional filters."""
@@ -125,15 +128,17 @@ class TriggerService:
     def update_subscription(
         self,
         subscription_id: UUID | str,
-        is_active: bool | None = None,
         conditions: dict | None = None,
+        *,
+        is_active: bool | None = None,
     ) -> AgentTrigger:
         """Update subscription properties."""
         session = SessionLocal()
         try:
             trigger = session.query(AgentTrigger).filter(AgentTrigger.id == subscription_id).first()
             if not trigger:
-                raise ValueError(f"Trigger {subscription_id} not found")
+                msg = f"Trigger {subscription_id} not found"
+                raise ValueError(msg)
 
             if is_active is not None:
                 trigger.is_active = is_active
@@ -199,7 +204,7 @@ class TriggerService:
 class TriggerEventService:
     """Service for tracking trigger event history."""
 
-    def record_trigger_event(
+    def record_trigger_event(  # noqa: PLR0913
         self,
         trigger_id: UUID | str,
         agent_id: UUID | str,
@@ -264,7 +269,7 @@ class TriggerEventService:
     def get_recent_events(
         self,
         agent_id: UUID | str | None = None,
-        simulation_id: UUID | str | None = None,
+        simulation_id: UUID | str | None = None,  # noqa: ARG002 - reserved for future use
         limit: int = 50,
     ) -> list[AgentTriggerEvent]:
         """Get recent trigger events."""
@@ -273,7 +278,7 @@ class TriggerEventService:
             query = session.query(AgentTriggerEvent)
             if agent_id:
                 query = query.filter(AgentTriggerEvent.agent_id == agent_id)
-            # For simulation filtering, we'd need to join with triggers
+            # TODO(byron): Add simulation filtering when needed (requires join with triggers)  # noqa: TD003
             events = query.order_by(AgentTriggerEvent.created_at.desc()).limit(limit).all()
             for e in events:
                 session.expunge(e)
@@ -290,15 +295,14 @@ class SimulationConfigService:
         session = SessionLocal()
         try:
             config = (
-                session.query(SimulationConfig)
-                .filter(SimulationConfig.simulation_id == simulation_id)
-                .first()
+                session.query(SimulationConfig).filter(SimulationConfig.simulation_id == simulation_id).first()
             )
             if not config:
                 # Verify simulation exists
                 simulation = session.query(Simulation).filter(Simulation.id == simulation_id).first()
                 if not simulation:
-                    raise ValueError(f"Simulation {simulation_id} not found")
+                    msg = f"Simulation {simulation_id} not found"
+                    raise ValueError(msg)
 
                 config = SimulationConfig(
                     simulation_id=simulation_id,
@@ -357,19 +361,14 @@ class SimulationConfigService:
         config = self.get_or_create_config(simulation_id)
         return config.is_paused
 
-    def _get_or_create_config_in_session(
-        self, session: Session, simulation_id: UUID | str
-    ) -> SimulationConfig:
+    def _get_or_create_config_in_session(self, session: Session, simulation_id: UUID | str) -> SimulationConfig:
         """Get or create config within an existing session."""
-        config = (
-            session.query(SimulationConfig)
-            .filter(SimulationConfig.simulation_id == simulation_id)
-            .first()
-        )
+        config = session.query(SimulationConfig).filter(SimulationConfig.simulation_id == simulation_id).first()
         if not config:
             simulation = session.query(Simulation).filter(Simulation.id == simulation_id).first()
             if not simulation:
-                raise ValueError(f"Simulation {simulation_id} not found")
+                msg = f"Simulation {simulation_id} not found"
+                raise ValueError(msg)
 
             config = SimulationConfig(
                 simulation_id=simulation_id,
@@ -394,20 +393,14 @@ class EventMatcherService:
         if not conditions:
             return True
 
-        for key, expected_value in conditions.items():
+        for key, expected in conditions.items():
             if key not in record_data:
                 return False
 
-            actual_value = record_data[key]
+            actual = record_data[key]
 
-            # Handle UUID comparison
-            if hasattr(actual_value, "hex"):
-                actual_value = str(actual_value)
-            if hasattr(expected_value, "hex"):
-                expected_value = str(expected_value)
-
-            # Simple string comparison
-            if str(actual_value) != str(expected_value):
+            # Convert to strings for comparison (handles UUIDs and other types)
+            if str(actual) != str(expected):
                 return False
 
         return True
