@@ -246,10 +246,10 @@ Use the Chrome browser automation tools to test UI functionality:
 For direct database inspection:
 ```bash
 # Check servers table
-PGPASSWORD=agent psql -h localhost -U agent -d agent_civilisation -c "SELECT name, server_type FROM servers;"
+PGPASSWORD=agent psql -h localhost -U agent -d polyagent -c "SELECT name, server_type FROM servers;"
 
 # Check agent server grants
-PGPASSWORD=agent psql -h localhost -U agent -d agent_civilisation -c "SELECT * FROM agent_servers LIMIT 10;"
+PGPASSWORD=agent psql -h localhost -U agent -d polyagent -c "SELECT * FROM agent_servers LIMIT 10;"
 ```
 
 ### Tmux Quick Reference
