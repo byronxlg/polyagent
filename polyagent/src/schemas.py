@@ -52,6 +52,7 @@ class SimulationResponse(BaseModel):
     principal_id: UUID
     name: str
     description: str | None
+    is_paused: bool
     created_at: datetime
 
     @field_serializer("created_at")
@@ -62,6 +63,7 @@ class SimulationResponse(BaseModel):
 class SimulationUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    is_paused: bool | None = None
 
 
 class TaskStatus(str, Enum):
@@ -313,21 +315,13 @@ class SimulationStatus(BaseModel):
     total_transactions: int
 
 
-class AgentToolUsageCreate(BaseModel):
-    agent_id: UUID
-    tool_id: UUID
-    input: str
-    output: str
-
-
-class AgentToolUsageResponse(BaseModel):
+class AgentMcpUsageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     agent_id: UUID
-    server_name: str
+    mcp_server_id: UUID
     tool_name: str
-    agent_task_id: UUID | None = None
     input: str | None
     output: str | None
     timestamp: datetime
@@ -343,7 +337,6 @@ class AgentModelUsageResponse(BaseModel):
     id: UUID
     agent_id: UUID
     model_id: UUID
-    agent_task_id: UUID | None = None
     input_tokens: int
     output_tokens: int
     total_cost: Decimal
@@ -356,7 +349,7 @@ class AgentModelUsageResponse(BaseModel):
         return dt.isoformat() + "Z" if dt else None
 
 
-class ServerResponse(BaseModel):
+class McpServerResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -423,7 +416,6 @@ class AgentTriggerResponse(BaseModel):
 
     id: UUID
     agent_id: UUID
-    simulation_id: UUID
     table_name: str
     change_type: str
     conditions: dict | None
@@ -457,21 +449,3 @@ class AgentTriggerEventResponse(BaseModel):
         return dt.isoformat() + "Z" if dt else None
 
 
-class SimulationConfigResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    simulation_id: UUID
-    is_paused: bool
-    config_json: dict | None
-    created_at: datetime
-    updated_at: datetime
-
-    @field_serializer("created_at", "updated_at")
-    def serialize_dt(self, dt: datetime | None) -> str | None:
-        return dt.isoformat() + "Z" if dt else None
-
-
-class SimulationConfigUpdate(BaseModel):
-    is_paused: bool | None = None
-    config_json: dict | None = None

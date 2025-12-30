@@ -12,6 +12,7 @@ erDiagram
         uuid principal_id FK "Principal who owns this simulation"
         string name "Simulation name"
         string description "Optional simulation description"
+        bool is_paused "Whether agent triggering is paused"
         datetime created_at "Timestamp when simulation was created"
     }
 
@@ -73,7 +74,7 @@ erDiagram
         datetime received_at "Timestamp when message was received"
     }
 
-    Server {
+    McpServer {
         uuid id PK "Unique server identifier"
         uuid created_by_principal_id FK "Principal who created this server"
         string name "Server name (unique)"
@@ -87,17 +88,16 @@ erDiagram
         datetime created_at "Timestamp when created"
     }
 
-    AgentServer {
+    AgentMcpServer {
         uuid id PK "Unique identifier"
         uuid agent_id FK "Agent with access"
-        uuid server_id FK "Server accessible to agent"
+        uuid mcp_server_id FK "MCP server accessible to agent"
         datetime granted_at "Timestamp when access was granted"
     }
 
     AgentTrigger {
         uuid id PK "Unique trigger identifier"
         uuid agent_id FK "Agent subscribed to this trigger"
-        uuid simulation_id FK "Simulation scope for trigger"
         string table_name "Table to watch: tasks, messages, agent_tasks, transactions"
         string change_type "INSERT, UPDATE, or DELETE"
         json conditions "Filter conditions as key-value pairs"
@@ -121,20 +121,10 @@ erDiagram
         datetime created_at "Timestamp when event recorded"
     }
 
-    SimulationConfig {
-        uuid id PK "Unique config identifier"
-        uuid simulation_id FK "Simulation this config belongs to (unique)"
-        bool is_paused "Whether agent triggering is paused"
-        json config_json "Additional configuration"
-        datetime created_at "Timestamp when created"
-        datetime updated_at "Timestamp when last updated"
-    }
-
     AgentModelUsage {
         uuid id PK "Unique identifier"
         uuid agent_id FK "Agent that used model"
         uuid model_id FK "Model that was used"
-        uuid agent_task_id FK "Optional: task this usage is for"
         int input_tokens "Number of input tokens"
         int output_tokens "Number of output tokens"
         decimal total_cost "Total dollars charged (calculated from model costs)"
@@ -153,12 +143,11 @@ erDiagram
         datetime timestamp "Timestamp of transaction"
     }
 
-    AgentToolUsage {
+    AgentMcpUsage {
         uuid id PK "Unique identifier"
         uuid agent_id FK "Agent that used the tool"
-        string server_name "MCP server name"
+        uuid mcp_server_id FK "MCP server used"
         string tool_name "Tool name within server"
-        uuid agent_task_id FK "Optional: task this usage is for"
         string input "Input parameters provided to tool"
         string output "Output returned by tool"
         datetime timestamp "Timestamp of usage"
@@ -169,12 +158,10 @@ erDiagram
     Principal ||--o{ Agent : "created"
     Principal ||--o{ Simulation : "owns"
     Principal ||--o{ Task : "created"
-    Principal ||--o{ Server : "created"
+    Principal ||--o{ McpServer : "created"
 
     Simulation ||--o{ Agent : "contains"
     Simulation ||--o{ Task : "contains"
-    Simulation ||--o| SimulationConfig : "has config"
-    Simulation ||--o{ AgentTrigger : "scopes"
 
     Message }o--|| Principal : "sends"
     Message }o--|| Principal : "receives"
@@ -189,15 +176,14 @@ erDiagram
     Agent ||--o{ AgentTask : "attempts"
     AgentTask }o--|| Task : "for"
 
-    Agent ||--o{ AgentServer : "has access to"
-    AgentServer }o--|| Server : "grants"
+    Agent ||--o{ AgentMcpServer : "has access to"
+    AgentMcpServer }o--|| McpServer : "grants"
+    Agent ||--o{ AgentMcpUsage : "uses tools"
+    AgentMcpUsage }o--|| McpServer : "from"
+
 
     Agent ||--o{ AgentTrigger : "subscribes to"
     Agent ||--o{ AgentTriggerEvent : "triggered by"
 
     AgentTrigger ||--o{ AgentTriggerEvent : "activates"
 
-    Agent ||--o{ AgentToolUsage : "uses tools"
-
-    AgentTask ||--o{ AgentModelUsage : "incurs"
-    AgentTask ||--o{ AgentToolUsage : "incurs"

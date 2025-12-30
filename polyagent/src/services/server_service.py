@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from src.database import SessionLocal
-from src.models import Agent, AgentServer, Server
+from src.models import Agent, AgentMcpServer, McpServer
 
 
 class ServerService:
@@ -20,37 +20,37 @@ class ServerService:
     def __init__(self) -> None:
         pass
 
-    def get_server(self, server_id: UUID | str) -> Server | None:
+    def get_server(self, server_id: UUID | str) -> McpServer | None:
         """Get a server by ID."""
         session = SessionLocal()
         try:
-            server = session.query(Server).filter(Server.id == server_id).first()
+            server = session.query(McpServer).filter(McpServer.id == server_id).first()
             if server:
                 session.expunge(server)
             return server
         finally:
             session.close()
 
-    def get_server_by_name(self, name: str) -> Server | None:
+    def get_server_by_name(self, name: str) -> McpServer | None:
         """Get a server by name."""
         session = SessionLocal()
         try:
-            server = session.query(Server).filter(Server.name == name).first()
+            server = session.query(McpServer).filter(McpServer.name == name).first()
             if server:
                 session.expunge(server)
             return server
         finally:
             session.close()
 
-    def list_servers(self, server_type: str | None = None, *, is_active: bool = True) -> list[Server]:
+    def list_servers(self, server_type: str | None = None, *, is_active: bool = True) -> list[McpServer]:
         """List all servers, optionally filtered by type and active status."""
         session = SessionLocal()
         try:
-            query = session.query(Server)
+            query = session.query(McpServer)
             if server_type:
-                query = query.filter(Server.server_type == server_type)
+                query = query.filter(McpServer.server_type == server_type)
             if is_active is not None:
-                query = query.filter(Server.is_active == is_active)
+                query = query.filter(McpServer.is_active == is_active)
             servers = query.all()
             for s in servers:
                 session.expunge(s)
@@ -63,20 +63,23 @@ class ServerService:
         session = SessionLocal()
         try:
             results = (
-                session.query(Server.name).join(AgentServer).filter(AgentServer.agent_id == agent_id).all()
+                session.query(McpServer.name)
+                .join(AgentMcpServer)
+                .filter(AgentMcpServer.agent_id == agent_id)
+                .all()
             )
             return {r.name for r in results}
         finally:
             session.close()
 
-    def get_servers_for_agent(self, agent_id: UUID | str) -> list[Server]:
+    def get_servers_for_agent(self, agent_id: UUID | str) -> list[McpServer]:
         """Get all servers granted to an agent."""
         session = SessionLocal()
         try:
             servers = (
-                session.query(Server)
-                .join(AgentServer)
-                .filter(AgentServer.agent_id == agent_id, Server.is_active.is_(True))
+                session.query(McpServer)
+                .join(AgentMcpServer)
+                .filter(AgentMcpServer.agent_id == agent_id, McpServer.is_active.is_(True))
                 .all()
             )
             for s in servers:
@@ -85,20 +88,20 @@ class ServerService:
         finally:
             session.close()
 
-    def grant_server(self, agent_id: UUID | str, server_id: UUID | str) -> AgentServer:
+    def grant_server(self, agent_id: UUID | str, server_id: UUID | str) -> AgentMcpServer:
         """Grant a server to an agent."""
         session = SessionLocal()
         try:
             existing = (
-                session.query(AgentServer)
-                .filter(AgentServer.agent_id == agent_id, AgentServer.server_id == server_id)
+                session.query(AgentMcpServer)
+                .filter(AgentMcpServer.agent_id == agent_id, AgentMcpServer.mcp_server_id == server_id)
                 .first()
             )
             if existing:
                 session.expunge(existing)
                 return existing
 
-            agent_server = AgentServer(agent_id=agent_id, server_id=server_id)
+            agent_server = AgentMcpServer(agent_id=agent_id, mcp_server_id=server_id)
             session.add(agent_server)
             session.commit()
             session.refresh(agent_server)
@@ -115,8 +118,8 @@ class ServerService:
         session = SessionLocal()
         try:
             result = (
-                session.query(AgentServer)
-                .filter(AgentServer.agent_id == agent_id, AgentServer.server_id == server_id)
+                session.query(AgentMcpServer)
+                .filter(AgentMcpServer.agent_id == agent_id, AgentMcpServer.mcp_server_id == server_id)
                 .delete()
             )
             session.commit()
@@ -127,24 +130,26 @@ class ServerService:
         finally:
             session.close()
 
-    def grant_system_servers(self, agent_id: UUID | str) -> list[AgentServer]:
+    def grant_system_servers(self, agent_id: UUID | str) -> list[AgentMcpServer]:
         """Grant all system servers to an agent."""
         session = SessionLocal()
         try:
             servers = (
-                session.query(Server).filter(Server.server_type == "system", Server.is_active.is_(True)).all()
+                session.query(McpServer)
+                .filter(McpServer.server_type == "system", McpServer.is_active.is_(True))
+                .all()
             )
             granted = []
             for server in servers:
                 existing = (
-                    session.query(AgentServer)
-                    .filter(AgentServer.agent_id == agent_id, AgentServer.server_id == server.id)
+                    session.query(AgentMcpServer)
+                    .filter(AgentMcpServer.agent_id == agent_id, AgentMcpServer.mcp_server_id == server.id)
                     .first()
                 )
                 if existing:
                     granted.append(existing)
                 else:
-                    agent_server = AgentServer(agent_id=agent_id, server_id=server.id)
+                    agent_server = AgentMcpServer(agent_id=agent_id, mcp_server_id=server.id)
                     session.add(agent_server)
                     granted.append(agent_server)
             session.commit()
@@ -167,11 +172,11 @@ class ServerService:
         env: dict | None = None,
         server_type: str = "custom",
         transport: str = "stdio",
-    ) -> Server:
+    ) -> McpServer:
         """Create a new MCP server."""
         session = SessionLocal()
         try:
-            server = Server(
+            server = McpServer(
                 name=name,
                 description=description,
                 created_by_principal_id=created_by_principal_id,
@@ -197,7 +202,7 @@ class ServerService:
         """Delete a server (soft delete by setting is_active=False)."""
         session = SessionLocal()
         try:
-            server = session.query(Server).filter(Server.id == server_id).first()
+            server = session.query(McpServer).filter(McpServer.id == server_id).first()
             if not server:
                 return False
             server.is_active = False

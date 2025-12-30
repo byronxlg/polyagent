@@ -31,15 +31,18 @@ if config.config_file_name is not None:
 from src.database import Base
 from src.models import (
     Agent,
+    AgentMcpServer,
+    AgentMcpUsage,
     AgentModelUsage,
-    AgentServer,
     AgentTask,
-    AgentToolUsage,
+    AgentTrigger,
+    AgentTriggerEvent,
+    McpServer,
     Message,
     Model,
     Principal,
-    Server,
     Simulation,
+    Task,
     Transaction,
 )
 

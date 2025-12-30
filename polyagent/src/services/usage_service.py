@@ -2,18 +2,17 @@ from datetime import datetime
 from uuid import UUID
 
 from src.database import SessionLocal
-from src.models import Agent, AgentModelUsage, AgentToolUsage, Transaction
+from src.models import Agent, AgentMcpUsage, AgentModelUsage, Transaction
 
 
 class UsageService:
     def __init__(self) -> None:
         pass
 
-    def get_model_usage(  # noqa: PLR0913
+    def get_model_usage(
         self,
         agent_id: UUID | str,
         *,
-        agent_task_id: UUID | str | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
         limit: int = 20,
@@ -23,7 +22,6 @@ class UsageService:
 
         Args:
             agent_id: The agent to get usage for
-            agent_task_id: Filter by specific agent task
             since: Only include usage after this timestamp
             until: Only include usage before this timestamp
             limit: Maximum number of records to return
@@ -36,8 +34,6 @@ class UsageService:
         try:
             query = session.query(AgentModelUsage).filter(AgentModelUsage.agent_id == agent_id)
 
-            if agent_task_id is not None:
-                query = query.filter(AgentModelUsage.agent_task_id == agent_task_id)
             if since is not None:
                 query = query.filter(AgentModelUsage.timestamp >= since)
             if until is not None:
@@ -58,7 +54,7 @@ class UsageService:
             records = [
                 {
                     "id": str(u.id),
-                    "agent_task_id": str(u.agent_task_id) if u.agent_task_id else None,
+                    "model_id": str(u.model_id),
                     "input_tokens": u.input_tokens,
                     "output_tokens": u.output_tokens,
                     "total_cost": str(u.total_cost),
@@ -78,22 +74,20 @@ class UsageService:
         finally:
             session.close()
 
-    def get_tool_usage(  # noqa: PLR0913
+    def get_mcp_usage(  # noqa: PLR0913
         self,
         agent_id: UUID | str,
         *,
-        agent_task_id: UUID | str | None = None,
         tool_name: str | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[dict], dict]:
-        """Get tool usage records for an agent.
+        """Get MCP tool usage records for an agent.
 
         Args:
             agent_id: The agent to get usage for
-            agent_task_id: Filter by specific agent task
             tool_name: Filter by specific tool name
             since: Only include usage after this timestamp
             until: Only include usage before this timestamp
@@ -105,16 +99,14 @@ class UsageService:
         """
         session = SessionLocal()
         try:
-            query = session.query(AgentToolUsage).filter(AgentToolUsage.agent_id == agent_id)
+            query = session.query(AgentMcpUsage).filter(AgentMcpUsage.agent_id == agent_id)
 
-            if agent_task_id is not None:
-                query = query.filter(AgentToolUsage.agent_task_id == agent_task_id)
             if tool_name is not None:
-                query = query.filter(AgentToolUsage.tool_name == tool_name)
+                query = query.filter(AgentMcpUsage.tool_name == tool_name)
             if since is not None:
-                query = query.filter(AgentToolUsage.timestamp >= since)
+                query = query.filter(AgentMcpUsage.timestamp >= since)
             if until is not None:
-                query = query.filter(AgentToolUsage.timestamp <= until)
+                query = query.filter(AgentMcpUsage.timestamp <= until)
 
             # Get total count before pagination
             total_count = query.count()
@@ -123,17 +115,15 @@ class UsageService:
             all_filtered = query.all()
             tools_used: dict[str, int] = {}
             for u in all_filtered:
-                name = f"{u.server_name}:{u.tool_name}"
-                tools_used[name] = tools_used.get(name, 0) + 1
+                tools_used[u.tool_name] = tools_used.get(u.tool_name, 0) + 1
 
             # Apply pagination
-            usages = query.order_by(AgentToolUsage.timestamp.desc()).offset(offset).limit(limit).all()
+            usages = query.order_by(AgentMcpUsage.timestamp.desc()).offset(offset).limit(limit).all()
 
             records = [
                 {
                     "id": str(u.id),
-                    "agent_task_id": str(u.agent_task_id) if u.agent_task_id else None,
-                    "server_name": u.server_name,
+                    "mcp_server_id": str(u.mcp_server_id),
                     "tool_name": u.tool_name,
                     "input": u.input[:500] if u.input else None,
                     "output": u.output[:500] if u.output else None,
@@ -237,47 +227,5 @@ class UsageService:
             }
 
             return records, summary
-        finally:
-            session.close()
-
-    def get_task_cost_summary(self, agent_id: UUID | str, agent_task_id: UUID | str) -> dict:
-        """Get a cost summary for a specific task.
-
-        Returns total model costs and tool usage for the task.
-        """
-        session = SessionLocal()
-        try:
-            # Get model usage for this task
-            model_usages = (
-                session.query(AgentModelUsage)
-                .filter(AgentModelUsage.agent_id == agent_id, AgentModelUsage.agent_task_id == agent_task_id)
-                .all()
-            )
-
-            total_model_cost = sum(float(u.total_cost) for u in model_usages)
-            total_input_tokens = sum(u.input_tokens for u in model_usages)
-            total_output_tokens = sum(u.output_tokens for u in model_usages)
-
-            # Get tool usage for this task
-            tool_usages = (
-                session.query(AgentToolUsage)
-                .filter(AgentToolUsage.agent_id == agent_id, AgentToolUsage.agent_task_id == agent_task_id)
-                .all()
-            )
-
-            tools_used: dict[str, int] = {}
-            for u in tool_usages:
-                name = f"{u.server_name}:{u.tool_name}"
-                tools_used[name] = tools_used.get(name, 0) + 1
-
-            return {
-                "agent_task_id": str(agent_task_id),
-                "model_calls": len(model_usages),
-                "total_model_cost": f"{total_model_cost:.6f}",
-                "total_input_tokens": total_input_tokens,
-                "total_output_tokens": total_output_tokens,
-                "tool_calls": len(tool_usages),
-                "tools_used": tools_used,
-            }
         finally:
             session.close()

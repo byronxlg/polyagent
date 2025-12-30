@@ -14,17 +14,16 @@ from src.agent.agent import Agent as AgentExecutor
 from src.database import SessionLocal
 from src.models import (
     Agent,
+    AgentMcpServer,
+    AgentMcpUsage,
     AgentModelUsage,
-    AgentServer,
     AgentTask,
-    AgentToolUsage,
     AgentTrigger,
     AgentTriggerEvent,
     Message,
     Model,
     Principal,
     Simulation,
-    SimulationConfig,
     Task,
     Transaction,
 )
@@ -32,13 +31,14 @@ from src.schemas import (
     ActivityResponse,
     AgentBalanceResponse,
     AgentCreate,
+    AgentMcpUsageResponse,
     AgentModelUsageResponse,
     AgentResponse,
     AgentTaskResponse,
-    AgentToolUsageResponse,
     AgentTriggerEventResponse,
     AgentTriggerResponse,
     AgentUpdate,
+    McpServerResponse,
     MessageCreate,
     MessageResponse,
     ModelCreate,
@@ -46,8 +46,6 @@ from src.schemas import (
     PaginatedResponse,
     PrincipalCreate,
     PrincipalResponse,
-    ServerResponse,
-    SimulationConfigResponse,
     SimulationCreate,
     SimulationResponse,
     SimulationUpdate,
@@ -203,6 +201,8 @@ def update_simulation(
         simulation.name = update.name
     if update.description is not None:
         simulation.description = update.description
+    if update.is_paused is not None:
+        simulation.is_paused = update.is_paused
     db.commit()
     db.refresh(simulation)
     return simulation
@@ -378,7 +378,7 @@ def delete_agent(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     # Delete related data in order (respecting foreign key constraints)
-    db.query(AgentToolUsage).filter(AgentToolUsage.agent_id == agent_id).delete()
+    db.query(AgentMcpUsage).filter(AgentMcpUsage.agent_id == agent_id).delete()
     db.query(AgentModelUsage).filter(AgentModelUsage.agent_id == agent_id).delete()
     # For Transaction and Message, convert agent_id to principal_id for filtering
     db.query(Transaction).filter(
@@ -389,7 +389,7 @@ def delete_agent(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str
         (Message.from_principal_id == agent.principal_id) | (Message.to_principal_id == agent.principal_id)
     ).delete(synchronize_session=False)
     db.query(AgentTask).filter(AgentTask.agent_id == agent_id).delete()
-    db.query(AgentServer).filter(AgentServer.agent_id == agent_id).delete()
+    db.query(AgentMcpServer).filter(AgentMcpServer.agent_id == agent_id).delete()
     # Delete trigger events first (references agent_triggers), then triggers
     db.query(AgentTriggerEvent).filter(AgentTriggerEvent.agent_id == agent_id).delete()
     db.query(AgentTrigger).filter(AgentTrigger.agent_id == agent_id).delete()
@@ -405,7 +405,7 @@ def get_agent_balance(agent_id: UUID) -> dict[str, UUID | Decimal]:
     return {"agent_id": agent_id, "balance": balance}
 
 
-@app.get("/agents/{agent_id}/servers", response_model=list[ServerResponse], tags=["Agents"])
+@app.get("/agents/{agent_id}/servers", response_model=list[McpServerResponse], tags=["Agents"])
 def get_agent_servers(agent_id: UUID, db: Session = Depends(get_db)) -> list:
     """Get all MCP servers granted to an agent."""
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
@@ -687,19 +687,19 @@ def tick_all_agents(db: Session = Depends(get_db)) -> dict[str, list[dict[str, s
     return {"results": results}
 
 
-@app.get("/agent-tool-usage", response_model=PaginatedResponse[AgentToolUsageResponse], tags=["Usage"])
-def list_agent_tool_usage(
+@app.get("/agent-mcp-usage", response_model=PaginatedResponse[AgentMcpUsageResponse], tags=["Usage"])
+def list_agent_mcp_usage(
     agent_id: UUID | None = None,
     limit: int = DEFAULT_LIMIT,
     offset: int = 0,
     db: Session = Depends(get_db),
 ) -> dict:
-    query = db.query(AgentToolUsage)
+    query = db.query(AgentMcpUsage)
     if agent_id:
-        query = query.filter(AgentToolUsage.agent_id == agent_id)
+        query = query.filter(AgentMcpUsage.agent_id == agent_id)
 
     total = query.count()
-    items = query.order_by(AgentToolUsage.timestamp.desc()).offset(offset).limit(limit).all()
+    items = query.order_by(AgentMcpUsage.timestamp.desc()).offset(offset).limit(limit).all()
 
     return {
         "items": items,
@@ -735,12 +735,12 @@ def list_agent_model_usage(
 def reset_simulation(db: Session = Depends(get_db)) -> dict[str, str]:
     """Reset simulation data while preserving servers and models."""
     # Delete in order to respect foreign key constraints
-    db.query(AgentToolUsage).delete()
+    db.query(AgentMcpUsage).delete()
     db.query(AgentModelUsage).delete()
     db.query(Transaction).delete()
     db.query(Message).delete()
     db.query(AgentTask).delete()
-    db.query(AgentServer).delete()
+    db.query(AgentMcpServer).delete()
     db.query(Agent).delete()
     db.query(Task).delete()
     db.commit()
@@ -776,15 +776,8 @@ def get_activity(
 # Trigger System Endpoints
 
 
-@app.get("/simulations/{simulation_id}/config", response_model=SimulationConfigResponse, tags=["Triggers"])
-def get_simulation_config(simulation_id: UUID, _db: Session = Depends(get_db)) -> SimulationConfig:
-    """Get simulation configuration including pause state."""
-    config_service = SimulationConfigService()
-    return config_service.get_or_create_config(simulation_id)
-
-
-@app.post("/simulations/{simulation_id}/pause", response_model=SimulationConfigResponse, tags=["Triggers"])
-def pause_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> SimulationConfig:
+@app.post("/simulations/{simulation_id}/pause", response_model=SimulationResponse, tags=["Triggers"])
+def pause_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> Simulation:
     """Pause automatic agent triggering for a simulation.
 
     When paused, the trigger worker will not execute agents in this simulation,
@@ -799,8 +792,8 @@ def pause_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> Simu
     return config_service.pause_simulation(simulation_id)
 
 
-@app.post("/simulations/{simulation_id}/resume", response_model=SimulationConfigResponse, tags=["Triggers"])
-def resume_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> SimulationConfig:
+@app.post("/simulations/{simulation_id}/resume", response_model=SimulationResponse, tags=["Triggers"])
+def resume_simulation(simulation_id: UUID, db: Session = Depends(get_db)) -> Simulation:
     """Resume automatic agent triggering for a simulation."""
     # Verify simulation exists
     simulation = db.query(Simulation).filter(Simulation.id == simulation_id).first()
