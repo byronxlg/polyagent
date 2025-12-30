@@ -1,8 +1,8 @@
 """seed initial data
 
-Revision ID: 3178b8f950b1
-Revises: 8e04ff2c6804
-Create Date: 2025-12-21 16:47:33.444027
+Revision ID: 32f83227f854
+Revises: 2c5949726cdc
+Create Date: 2025-12-30 18:25:04.969517
 
 """
 import json
@@ -13,12 +13,11 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import table, column, String, Numeric, Boolean, Text
-from sqlalchemy.dialects.postgresql import UUID
 
 
 # revision identifiers, used by Alembic.
-revision: str = '3178b8f950b1'
-down_revision: Union[str, Sequence[str], None] = '8e04ff2c6804'
+revision: str = '32f83227f854'
+down_revision: Union[str, Sequence[str], None] = '2c5949726cdc'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -82,24 +81,34 @@ def upgrade() -> None:
                 conn.execute(models_table.insert().values(model_data))
         conn.commit()
 
-    # Seed tools
-    tools_file = seed_data_dir / "tools.json"
-    if tools_file.exists():
-        with tools_file.open() as f:
-            tools_data = json.load(f)
+    # Seed MCP servers
+    servers_file = seed_data_dir / "servers.json"
+    if servers_file.exists():
+        with servers_file.open() as f:
+            servers_data = json.load(f)
 
-        # Check existing tools
-        existing_tools = {row[0] for row in conn.execute(sa.text("SELECT name FROM tools"))}
+        # Check existing servers
+        existing_servers = {row[0] for row in conn.execute(sa.text("SELECT name FROM mcp_servers"))}
 
-        # Insert new tools
-        for tool_data in tools_data:
-            if tool_data['name'] not in existing_tools:
+        # Insert new servers
+        for server_data in servers_data:
+            if server_data['name'] not in existing_servers:
                 conn.execute(
                     sa.text(
-                        "INSERT INTO tools (name, description, category, scope, created_by_principal_id) "
-                        "VALUES (:name, :description, :category, :scope, :created_by_principal_id)"
+                        "INSERT INTO mcp_servers (name, description, server_type, transport, command, args, "
+                        "created_by_principal_id, is_active, created_at) "
+                        "VALUES (:name, :description, :server_type, :transport, :command, CAST(:args AS jsonb), "
+                        ":created_by_principal_id, true, NOW())"
                     ),
-                    tool_data
+                    {
+                        'name': server_data['name'],
+                        'description': server_data['description'],
+                        'server_type': server_data['server_type'],
+                        'transport': server_data['transport'],
+                        'command': server_data['command'],
+                        'args': json.dumps(server_data.get('args')),
+                        'created_by_principal_id': server_data['created_by_principal_id'],
+                    }
                 )
         conn.commit()
 
@@ -112,14 +121,14 @@ def downgrade() -> None:
     # Get connection
     conn = op.get_bind()
 
-    # Remove tools
-    tools_file = seed_data_dir / "tools.json"
-    if tools_file.exists():
-        with tools_file.open() as f:
-            tools_data = json.load(f)
+    # Remove MCP servers
+    servers_file = seed_data_dir / "servers.json"
+    if servers_file.exists():
+        with servers_file.open() as f:
+            servers_data = json.load(f)
 
-        for tool_data in tools_data:
-            conn.execute(sa.text("DELETE FROM tools WHERE name = :name"), {"name": tool_data['name']})
+        for server_data in servers_data:
+            conn.execute(sa.text("DELETE FROM mcp_servers WHERE name = :name"), {"name": server_data['name']})
 
     # Remove models
     models_file = seed_data_dir / "models.json"
