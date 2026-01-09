@@ -119,9 +119,9 @@ class Agent:
 
         for server_name, config in server_configs.items():
             try:
-                # Build StdioConnection from our config
+                # Build connection from our config
                 connection = StdioConnection(
-                    transport="stdio",
+                    transport=config["transport"],
                     command=config["command"],
                     args=config.get("args", []),
                     env=config.get("env"),
