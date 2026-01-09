@@ -7,6 +7,7 @@ servers via langchain-mcp-adapters.
 
 import asyncio
 import logging
+import os
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -92,9 +93,12 @@ class Agent:
             if server.args:
                 config["args"] = server.args
 
-            # Merge server env with principal_id injection
+            # Merge server env with required environment variables
             env = dict(server.env) if server.env else {}
             env["PRINCIPAL_ID"] = self.principal_id
+            # Pass through DATABASE_URL for MCP servers that need DB access
+            if "DATABASE_URL" in os.environ:
+                env["DATABASE_URL"] = os.environ["DATABASE_URL"]
             config["env"] = env
 
             configs[server.name] = config
