@@ -219,8 +219,22 @@ async def track_tool_usage(
     # Execute tool call
     result = await handler(request)
 
-    # Extract output
-    output_content = result.content if hasattr(result, "content") else str(result)
+    # Extract output - handle various content formats
+    if hasattr(result, "content"):
+        content = result.content
+        if isinstance(content, str):
+            output_content = content
+        elif isinstance(content, list):
+            # Content blocks - extract text from each
+            texts = [
+                block.get("text", str(block)) if isinstance(block, dict) else str(block)
+                for block in content
+            ]
+            output_content = "\n".join(texts)
+        else:
+            output_content = str(content)
+    else:
+        output_content = str(result)
 
     # Look up server name from context mapping
     tool_to_server = request.runtime.context.tool_to_server or {}
