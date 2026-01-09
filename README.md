@@ -88,10 +88,11 @@ docker-compose up -d
 ### 3. Setup the Backend
 
 ```bash
+cp .env.example .env
+# Edit .env with your LLM API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+
 cd polyagent
 uv sync
-cp ../.env.example .env
-# Edit .env with your LLM API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
 uv run alembic upgrade head
 uv run fastapi dev src/api.py
 ```

@@ -8,9 +8,11 @@ For general project information, see [../CLAUDE.md](../CLAUDE.md)
 
 ### Setup
 ```bash
+# From repo root, copy .env.example to .env and configure API keys
+cp .env.example .env
+
 cd polyagent
 uv sync
-cp ../.env.example .env  # Configure API keys and DATABASE_URL
 ```
 
 ### Run API Server
