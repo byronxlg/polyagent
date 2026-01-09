@@ -87,7 +87,7 @@ uv run alembic history
 - `TransactionService`: Manages credit transactions via immutable ledger
 - `TaskService`: Handles task lifecycle, submissions, and evaluations
 - `MessageService`: Manages agent-to-agent communication
-- `ToolService`: Handles tool discovery, registration, and agent access control
+- `ServerService`: Manages MCP server grants and access control
 - `AgentService`: Manages agent queries and profile updates
 
 **API** (`src/api.py`):
@@ -96,11 +96,9 @@ uv run alembic history
 - Pydantic schemas for validation
 
 **Agent** (`src/agent/`):
-- `agent.py`: Agent class that orchestrates LLM calls and tracks usage
-- `state.py`: Custom LangGraph state schema with task tracking
-- `middleware.py`: Model and tool usage tracking, credit deduction
-- `tools/system/`: System tools available to all agents
-- `tools/custom/`: Directory for agent-created custom tools
+- `agent.py`: Agent class using LangChain's `create_agent()` with MCP tools
+- `lifecycle.py`: Before/after agent execution hooks (set is_running, save reflection)
+- `prompts/system.md`: System prompt template for autonomous agents
 
 ### Key Patterns
 
@@ -122,30 +120,30 @@ uv run alembic history
 - **Agents construct their own prompts**: They decide what actions to take
 - **Token usage is tracked**: Credits deducted for every model call
 - **Agents cannot think while in debt**: Negative balance blocks execution
-- **Tools are LangChain functions**: Granted via the AgentTool junction table
-- **System tools**: Auto-discovered from `src/agent/tools/system/` at startup
+- **Tools come from MCP servers**: Granted via the `AgentMcpServer` junction table
+- **System MCP servers**: Seeded at startup, provide core tools for all agents
 
-### Tool Categories
+### Architecture
 
-- **Task management**: get_tasks, accept_task, submit_task, abandon_task
-- **Communication**: send_message, check_messages
-- **Credits**: transfer_credits, check_balance
-- **Memory**: read_memory, write_memory, delete_memory
-- **Agent info**: get_agents, get_model_costs
-- **Tooling**: create_tool, share_tool
+The agent uses LangChain's `create_agent()` with middleware:
 
-See `src/agent/tools/system/` for all available system tools.
+1. **ModelUsageMiddleware**: Tracks token usage, calculates costs, deducts from balance
+2. **ToolUsageMiddleware**: Records MCP tool calls to `AgentMcpUsage`
+3. **MCP Client**: Loads tools from granted MCP servers via `langchain-mcp-adapters`
 
-### Task Tracking
+### MCP Server Categories
 
-The agent execution system tracks which task an agent is currently working on:
+Tools are provided by MCP servers (see `src/mcp_servers/servers/`):
 
-- **State**: `current_agent_task_id` stored in LangGraph state
-- **Tools update state**: `accept_task` sets focus, `submit_task`/`abandon_task` clear it
-- **Middleware reads state**: Links model/tool usage to the active task
-- **Usage records**: `AgentModelUsage` and `AgentToolUsage` have `agent_task_id` FK
-
-This enables cost attribution per task and profitability analysis.
+- **task**: get_tasks, accept_task, submit_task, abandon_task
+- **message**: send_message, check_messages
+- **transaction**: transfer_credits, check_balance
+- **memory**: read_memory, write_memory, delete_memory
+- **agent**: get_agents, get_profile, signal_idle
+- **model**: get_model_costs, list_models
+- **tooling**: create_server, list_servers, grant_server
+- **trigger**: subscribe to database events
+- **think**: internal reasoning tool
 
 ## Important Implementation Notes
 
@@ -160,7 +158,7 @@ This enables cost attribution per task and profitability analysis.
 
 Every LLM call must:
 1. Check agent balance before execution (middleware)
-2. Record AgentModelUsage with tokens, cost, and task link
+2. Record AgentModelUsage with tokens and cost
 3. Create Transaction record deducting cost
 4. Link Transaction to AgentModelUsage via `reference_id`
 
@@ -255,71 +253,39 @@ When making changes to API endpoints, services, or schemas:
 3. Use dependency injection in API endpoints
 4. Add tests in `tests/services/test_new_service.py`
 
-### Adding a System Tool
+### Adding an MCP Server
 
-1. Create tool function in `src/agent/tools/system/`
-2. Use `@tool` decorator with clear description
-3. Tool auto-discovered on agent initialization
-4. System tools automatically granted to all new agents
+MCP servers provide tools to agents. To add a new server:
 
-### Creating Custom Tools (Agent-Created)
+1. Create server file in `src/mcp_servers/servers/`
+2. Use FastMCP to define tools with `@mcp.tool()` decorator
+3. Add server to seed data in `alembic/seed_data/servers.json`
+4. Grant server to agents via `AgentMcpServer` junction table
 
-Agents can create their own custom tools using the `create_tool` system tool.
-
-**Required Structure:**
+**Example MCP Server:**
 
 ```python
-from langchain_core.tools import tool
+from fastmcp import FastMCP
 
-def create_tools(principal_id: str) -> list:
-    """Create and return tools for the principal."""
+mcp = FastMCP("my_server")
 
-    @tool("tool_name", description="Brief description")
-    def tool_name(param: str) -> dict:
-        """Tool implementation."""
-        return {"success": True, "result": "..."}
+@mcp.tool()
+def my_tool(param: str) -> dict:
+    """Tool description."""
+    return {"success": True, "result": "..."}
 
-    return [tool_name]
+if __name__ == "__main__":
+    mcp.run()
 ```
 
-**Key Requirements:**
-1. **create_tools function**: Must have signature `create_tools(principal_id: str) -> list`
-2. **@tool decorator**: Use `@tool(name, description="...")` from `langchain_core.tools`
-3. **Return list**: The `create_tools` function must return a list of tool objects
-4. **principal_id parameter**: The principal_id of the agent using the tools; get agent_id from it if needed
-
-**Creation Process:**
-1. Agent uses the `create_tool` tool to submit custom tool code
-2. Tool name is sanitized to create a valid Python identifier
-3. File saved to `src/agent/tools/custom/{principal_id}/{sanitized_name}_tool.py`
-   - Tools are organized in subdirectories by creator's principal_id
-   - Each principal_id subdirectory contains an `__init__.py` file
-4. Tool registered in database with:
-   - `category`: `{sanitized_name}` (the tool category/type)
-   - `scope`: "local"
-   - `created_by_principal_id`: Agent's principal ID (determines directory location)
-   - Module path is derived from: `src.agent.tools.custom.{created_by_principal_id}.{category}_tool`
-5. Tool automatically granted to the creating agent via AgentTool junction table
-
-**Available Imports:**
-- `langchain_core.tools` - For the @tool decorator
-- `src.database` - For SessionLocal and database access
-- `src.models` - For database models (Agent, Task, Message, etc.)
-- Standard library modules
-
-**Best Practices:**
-- Keep tools focused on a single responsibility
-- Return dictionaries with `{"success": bool, ...}` structure
-- Handle errors gracefully and return meaningful error messages
-- Use the `agent_id` parameter when tools need agent-specific behavior
-- Close database sessions properly (use try/finally blocks)
-
-**Examples:**
-See `src/agent/tools/examples/` for template and example implementations.
+**Running MCP Servers:**
+- Servers run as stdio processes spawned by the agent
+- Configuration in `servers.json`: command, args, transport
+- Environment variable `PRINCIPAL_ID` injected for agent context
 
 ### Debugging Agent Execution
 
 1. Check logs for agent thinking cycles
-2. Query `AgentModelUsage` and `AgentToolUsage` for execution history
+2. Query `AgentModelUsage` and `AgentMcpUsage` for execution history
 3. Check agent balance via `TransactionService`
 4. Review task status and agent_tasks relationship

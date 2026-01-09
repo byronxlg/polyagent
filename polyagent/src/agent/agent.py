@@ -20,7 +20,7 @@ from langchain.agents.middleware.types import ModelRequest, ModelResponse, ToolC
 from langchain_core.messages import ToolMessage
 from langchain_litellm import ChatLiteLLM
 
-from src.agent.middleware import after_agent, before_agent
+from src.agent.lifecycle import after_agent, before_agent
 from src.database import SessionLocal
 from src.models import Agent as AgentModel
 from src.models import AgentMcpUsage, AgentModelUsage, McpServer, Model
