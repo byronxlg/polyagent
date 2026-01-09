@@ -8,7 +8,7 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from src.database import SessionLocal
-from src.models import Agent, Server
+from src.models import Agent, McpServer
 from src.services.server_service import ServerService
 
 mcp = FastMCP("tooling")
@@ -306,7 +306,7 @@ def delete_server(principal_id: str, server_name: str) -> dict:
     """
     session = SessionLocal()
     try:
-        server = session.query(Server).filter(Server.name == server_name).first()
+        server = session.query(McpServer).filter(McpServer.name == server_name).first()
         if not server:
             return {"success": False, "error": f"Server '{server_name}' not found"}
 
