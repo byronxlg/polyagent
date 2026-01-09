@@ -171,13 +171,11 @@ class Agent:
             # Invoke agent with context for middleware
             result = await agent.ainvoke(
                 {"messages": [{"role": "user", "content": "Begin your autonomous execution cycle."}]},
-                config={
-                    "recursion_limit": 50,
-                    "context": AgentContext(
-                        agent_id=self.agent_id,
-                        model=self.model,
-                    ),
-                },
+                config={"recursion_limit": 50},
+                context=AgentContext(
+                    agent_id=self.agent_id,
+                    model=self.model,
+                ),
             )
 
             messages = result.get("messages", [])
