@@ -8,8 +8,10 @@ Uses decorator-based middleware:
 """
 
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from langchain.agents.middleware import after_agent, before_agent, wrap_model_call, wrap_tool_call
 from sqlalchemy.orm.attributes import flag_modified
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @before_agent
-def validate_and_start(state, runtime):
+def validate_and_start(_state: dict[str, Any], runtime: Any) -> None:  # noqa: ANN401
     """Set is_running=True and validate agent has positive balance."""
     agent_id = runtime.context.get("agent_id")
     if not agent_id:
@@ -50,7 +52,7 @@ def validate_and_start(state, runtime):
 
 
 @after_agent
-def save_reflection_and_stop(state, runtime):
+def save_reflection_and_stop(state: dict[str, Any], runtime: Any) -> None:  # noqa: ANN401
     """Set is_running=False and save final reflection to memory."""
     agent_id = runtime.context.get("agent_id")
     if not agent_id:
@@ -87,7 +89,7 @@ def save_reflection_and_stop(state, runtime):
 
 
 @wrap_model_call
-def track_model_usage(request, handler):
+def track_model_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # noqa: ANN401
     """Track model usage, calculate costs, and deduct from agent balance."""
     agent_id = request.runtime.context.get("agent_id")
     model: Model = request.runtime.context.get("model")
@@ -172,7 +174,7 @@ def track_model_usage(request, handler):
 
 
 @wrap_tool_call
-def track_tool_usage(request, handler):
+def track_tool_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # noqa: ANN401
     """Track MCP tool usage."""
     agent_id = request.runtime.context.get("agent_id")
 
