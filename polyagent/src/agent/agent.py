@@ -102,8 +102,8 @@ class Agent:
         return configs
 
     async def _init_mcp_client(self) -> None:
-        """Initialize MCP client and load tools."""
-        from langchain_mcp_adapters.client import MultiServerMCPClient  # noqa: PLC0415
+        """Initialize MCP clients and load tools from each server."""
+        from langchain_mcp_adapters.client import StdioConnection, load_mcp_tools  # noqa: PLC0415
 
         server_configs = self._get_mcp_server_configs()
 
@@ -113,49 +113,44 @@ class Agent:
             self._tool_to_server = {}
             return
 
-        self._mcp_client = MultiServerMCPClient(server_configs)
-        self._tools = await self._mcp_client.get_tools()
-
-        # Build tool->server mapping by checking each tool's name against server tools
+        # Load tools from each server separately to track server attribution
+        self._tools = []
         self._tool_to_server = {}
-        for tool in self._tools:
-            tool_name = tool.name if hasattr(tool, "name") else str(tool)
-            # Check tool metadata for server info, or infer from tool name
-            if hasattr(tool, "metadata") and tool.metadata:
-                server_name = tool.metadata.get("server", "unknown")
-            else:
-                # Try to find server by matching tool name patterns
-                server_name = self._infer_server_from_tool(tool_name, server_configs)
-            self._tool_to_server[tool_name] = server_name
+
+        for server_name, config in server_configs.items():
+            try:
+                # Build StdioConnection from our config
+                connection = StdioConnection(
+                    command=config["command"],
+                    args=config.get("args", []),
+                    env=config.get("env", {}),
+                    cwd=None,
+                    encoding="utf-8",
+                    encoding_error_handler="strict",
+                )
+
+                # Load tools with server_name for metadata
+                server_tools = await load_mcp_tools(
+                    session=None,
+                    connection=connection,
+                    server_name=server_name,
+                )
+
+                # Track which server each tool came from
+                for tool in server_tools:
+                    tool_name = tool.name if hasattr(tool, "name") else str(tool)
+                    self._tool_to_server[tool_name] = server_name
+                    self._tools.append(tool)
+
+                logger.debug(f"Loaded {len(server_tools)} tools from server '{server_name}'")
+
+            except (OSError, ValueError, RuntimeError) as e:
+                logger.error(f"Failed to load tools from server '{server_name}': {e}")
+                # Continue loading other servers even if one fails
 
         logger.info(
             f"Agent {self.agent_id} loaded {len(self._tools)} tools from {len(server_configs)} MCP servers"
         )
-
-    def _infer_server_from_tool(self, tool_name: str, server_configs: dict[str, Any]) -> str:
-        """Infer server name from tool name based on known patterns."""
-        # Map of known tool prefixes/patterns to server names
-        tool_patterns = {
-            "task": ["get_available_tasks", "accept_task", "submit_task", "abandon_task", "get_task_details"],
-            "message": ["send_message", "check_messages", "get_inbox", "get_outbox"],
-            "transaction": ["transfer_credits", "check_balance", "get_balance", "get_transaction_history"],
-            "memory": ["read_memory", "write_memory", "delete_memory", "list_memory"],
-            "agent": ["get_agents", "get_profile", "update_profile", "signal_idle", "get_agent_details"],
-            "model": ["get_model_costs", "list_models", "get_model_details"],
-            "tooling": ["create_mcp_server", "list_custom_servers", "get_server_template", "delete_server",
-                        "grant_server_access", "list_my_servers", "list_server_examples", "get_server_example"],
-            "trigger": ["subscribe_trigger", "unsubscribe_trigger", "list_triggers", "get_trigger_events"],
-            "principal": ["get_principals", "get_principal_details"],
-            "usage": ["get_model_usage", "get_tool_usage"],
-            "think": ["think"],
-        }
-
-        for server_name, patterns in tool_patterns.items():
-            matches_pattern = tool_name in patterns or any(tool_name.startswith(p) for p in patterns)
-            if matches_pattern and server_name in server_configs:
-                return server_name
-
-        return "unknown"
 
     async def _close_mcp_client(self) -> None:
         """Clean up MCP client reference."""
