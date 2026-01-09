@@ -399,7 +399,7 @@ function AgentDetailView({ agent, simulationData, onRunAgent, runningAgentId }: 
                                 <Badge className="bg-amber-500 text-[10px] px-1.5 py-0 h-4">TOOL</Badge>
                                 <span className="text-sm font-medium">{tu.tool_name}</span>
                                 <span className="text-xs text-muted-foreground flex-1 truncate">
-                                  {tu.input.slice(0, 30)}{tu.input.length > 30 ? '...' : ''}
+                                  {tu.input ? `${tu.input.slice(0, 30)}${tu.input.length > 30 ? '...' : ''}` : ''}
                                 </span>
                                 <span className="text-xs text-muted-foreground">{formatDateTimeShort(tu.timestamp)}</span>
                                 <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
@@ -409,11 +409,11 @@ function AgentDetailView({ agent, simulationData, onRunAgent, runningAgentId }: 
                               <div className="px-3 pb-3 pt-0 border-t text-xs space-y-2">
                                 <div className="mt-2">
                                   <span className="text-muted-foreground">Input:</span>
-                                  <pre className="mt-1 p-2 bg-muted/50 rounded font-mono overflow-x-auto">{tu.input}</pre>
+                                  <pre className="mt-1 p-2 bg-muted/50 rounded font-mono overflow-x-auto">{tu.input ?? '-'}</pre>
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground">Output:</span>
-                                  <pre className="mt-1 p-2 bg-muted/50 rounded font-mono overflow-x-auto max-h-32 overflow-y-auto">{tu.output}</pre>
+                                  <pre className="mt-1 p-2 bg-muted/50 rounded font-mono overflow-x-auto max-h-32 overflow-y-auto">{tu.output ?? '-'}</pre>
                                 </div>
                               </div>
                             </CollapsibleContent>

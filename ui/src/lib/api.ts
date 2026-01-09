@@ -100,15 +100,18 @@ export interface AgentBalance {
   balance: string;
 }
 
-export interface AgentToolUsage {
+export interface AgentMcpUsage {
   id: string;
   agent_id: string;
-  tool_id: string;
+  mcp_server_id: string;
   tool_name: string;
-  input: string;
-  output: string;
+  input: string | null;
+  output: string | null;
   timestamp: string;
 }
+
+// Alias for backward compatibility
+export type AgentToolUsage = AgentMcpUsage;
 
 export interface AgentModelUsage {
   id: string;
@@ -424,10 +427,10 @@ export const api = {
     },
   },
   agentToolUsage: {
-    list: async (agentId?: string, limit = DEFAULT_LIMIT, offset = 0): Promise<PaginatedResponse<AgentToolUsage>> => {
+    list: async (agentId?: string, limit = DEFAULT_LIMIT, offset = 0): Promise<PaginatedResponse<AgentMcpUsage>> => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       if (agentId) params.set('agent_id', agentId);
-      const response = await fetch(`${API_BASE_URL}/agent-tool-usage?${params}`);
+      const response = await fetch(`${API_BASE_URL}/agent-mcp-usage?${params}`);
       return response.json();
     },
   },
