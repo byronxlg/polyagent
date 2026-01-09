@@ -144,7 +144,7 @@ def another_tool(principal_id: str, value: int) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)
 '''
         return {"success": True, "template": template}
 
@@ -378,4 +378,4 @@ def list_my_servers(principal_id: str) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)
