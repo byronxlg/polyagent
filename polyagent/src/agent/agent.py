@@ -15,7 +15,7 @@ from uuid import UUID
 from langchain.agents import create_agent
 from langchain_litellm import ChatLiteLLM
 
-from src.agent.middleware import MIDDLEWARE
+from src.agent.middleware import MIDDLEWARE, AgentContext
 from src.database import SessionLocal
 from src.models import Agent as AgentModel
 from src.models import Model
@@ -164,6 +164,7 @@ class Agent:
             tools=self._tools,
             system_prompt=self._get_system_prompt(),
             middleware=MIDDLEWARE,
+            context_schema=AgentContext,
         )
 
         try:
@@ -172,10 +173,10 @@ class Agent:
                 {"messages": [{"role": "user", "content": "Begin your autonomous execution cycle."}]},
                 config={
                     "recursion_limit": 50,
-                    "context": {
-                        "agent_id": self.agent_id,
-                        "model": self.model,
-                    },
+                    "context": AgentContext(
+                        agent_id=self.agent_id,
+                        model=self.model,
+                    ),
                 },
             )
 

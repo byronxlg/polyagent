@@ -9,9 +9,11 @@ Uses decorator-based middleware:
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from langchain.agents.middleware import after_agent, before_agent, wrap_model_call, wrap_tool_call
 from sqlalchemy.orm.attributes import flag_modified
@@ -20,13 +22,27 @@ from src.database import SessionLocal
 from src.models import Agent, AgentMcpUsage, AgentModelUsage, McpServer, Model
 from src.services.transaction_service import TransactionService
 
+
+@dataclass
+class AgentContext:
+    """Context schema for agent middleware.
+
+    This dataclass defines the context that will be available to middleware
+    via runtime.context when using create_agent with context_schema=AgentContext.
+    """
+
+    agent_id: UUID | str | None = None
+    model: Model | None = field(default=None, repr=False)
+
 logger = logging.getLogger(__name__)
 
 
 @before_agent
 def validate_and_start(_state: dict[str, Any], runtime: Any) -> None:  # noqa: ANN401
     """Set is_running=True and validate agent has positive balance."""
-    agent_id = runtime.context.get("agent_id")
+    if not runtime.context:
+        return
+    agent_id = runtime.context.agent_id
     if not agent_id:
         return
 
@@ -54,7 +70,9 @@ def validate_and_start(_state: dict[str, Any], runtime: Any) -> None:  # noqa: A
 @after_agent
 def save_reflection_and_stop(state: dict[str, Any], runtime: Any) -> None:  # noqa: ANN401
     """Set is_running=False and save final reflection to memory."""
-    agent_id = runtime.context.get("agent_id")
+    if not runtime.context:
+        return
+    agent_id = runtime.context.agent_id
     if not agent_id:
         return
 
@@ -91,8 +109,11 @@ def save_reflection_and_stop(state: dict[str, Any], runtime: Any) -> None:  # no
 @wrap_model_call
 def track_model_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # noqa: ANN401
     """Track model usage, calculate costs, and deduct from agent balance."""
-    agent_id = request.runtime.context.get("agent_id")
-    model: Model = request.runtime.context.get("model")
+    if not request.runtime.context:
+        return handler(request)
+
+    agent_id = request.runtime.context.agent_id
+    model: Model = request.runtime.context.model
 
     if not all([agent_id, model]):
         return handler(request)
@@ -176,7 +197,10 @@ def track_model_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # no
 @wrap_tool_call
 def track_tool_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # noqa: ANN401
     """Track MCP tool usage."""
-    agent_id = request.runtime.context.get("agent_id")
+    if not request.runtime.context:
+        return handler(request)
+
+    agent_id = request.runtime.context.agent_id
 
     if not agent_id:
         return handler(request)
