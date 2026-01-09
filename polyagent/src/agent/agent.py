@@ -121,12 +121,10 @@ class Agent:
             try:
                 # Build StdioConnection from our config
                 connection = StdioConnection(
+                    transport="stdio",
                     command=config["command"],
                     args=config.get("args", []),
-                    env=config.get("env", {}),
-                    cwd=None,
-                    encoding="utf-8",
-                    encoding_error_handler="strict",
+                    env=config.get("env"),
                 )
 
                 # Load tools with server_name for metadata
