@@ -458,4 +458,26 @@ export const api = {
       return response.json();
     },
   },
+  servers: {
+    list: async (limit = DEFAULT_LIMIT, offset = 0, serverType?: string): Promise<PaginatedResponse<Server>> => {
+      const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      if (serverType) params.set('server_type', serverType);
+      const response = await fetch(`${API_BASE_URL}/servers?${params}`);
+      return response.json();
+    },
+    get: async (id: string): Promise<Server> => {
+      const response = await fetch(`${API_BASE_URL}/servers/${id}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Server not found');
+        }
+        throw new Error(`Failed to fetch server: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    getAgents: async (id: string): Promise<Agent[]> => {
+      const response = await fetch(`${API_BASE_URL}/servers/${id}/agents`);
+      return response.json();
+    },
+  },
 };

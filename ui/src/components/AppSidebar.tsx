@@ -13,6 +13,7 @@ import {
   Play,
   RefreshCw,
   Activity,
+  Server,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -53,6 +54,7 @@ const getNavItems = (simulationId: string | null) => {
     { title: 'Agents', url: `${baseUrl}/agents`, icon: Bot, path: '/agents' },
     { title: 'Principals', url: `${baseUrl}/principals`, icon: UserCircle, path: '/principals' },
     { title: 'Models', url: `${baseUrl}/models`, icon: Box, path: '/models' },
+    { title: 'Servers', url: `${baseUrl}/servers`, icon: Server, path: '/servers' },
     { title: 'Conversations', url: `${baseUrl}/messages`, icon: MessageSquare, path: '/messages' },
     { title: 'Transactions', url: `${baseUrl}/transactions`, icon: ArrowRightLeft, path: '/transactions' },
   ];
@@ -83,7 +85,7 @@ export function AppSidebar({ onUpdate, simulationData }: AppSidebarProps) {
     toast.info('Create a new simulation')
   }
 
-  const { agents, models, tasks, simulations, setCurrentSimulation } = simulationData
+  const { agents, models, tasks, servers, simulations, setCurrentSimulation } = simulationData
 
   // Get simulation ID from router params (type-safe, no regex needed)
   const params = useParams({ strict: false })
@@ -120,6 +122,9 @@ export function AppSidebar({ onUpdate, simulationData }: AppSidebarProps) {
                   )}
                   {item.path === '/models' && models.length > 0 && (
                     <SidebarMenuBadge>{models.length}</SidebarMenuBadge>
+                  )}
+                  {item.path === '/servers' && servers.length > 0 && (
+                    <SidebarMenuBadge>{servers.length}</SidebarMenuBadge>
                   )}
                 </SidebarMenuItem>
               ))}

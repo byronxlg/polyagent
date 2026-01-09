@@ -16,12 +16,13 @@ export function useSimulationData(refreshTrigger: number) {
   const [agentModelUsage, setAgentModelUsage] = useState<AgentModelUsage[]>([]);
   const [agentBalances, setAgentBalances] = useState<Record<string, string>>({});
   const [agentServers, setAgentServers] = useState<Record<string, Server[]>>({});
+  const [servers, setServers] = useState<Server[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [simulationsRes, agentsRes, principalsRes, modelsRes, tasksRes, messagesRes, agentTasksRes, transactionsRes, toolUsageRes, modelUsageRes] = await Promise.all([
+      const [simulationsRes, agentsRes, principalsRes, modelsRes, tasksRes, messagesRes, agentTasksRes, transactionsRes, toolUsageRes, modelUsageRes, serversRes] = await Promise.all([
         api.simulations.list(),
         api.agents.list(),
         api.principals.list(),
@@ -32,6 +33,7 @@ export function useSimulationData(refreshTrigger: number) {
         api.transactions.list(),
         api.agentToolUsage.list(),
         api.agentModelUsage.list(),
+        api.servers.list(),
       ]);
 
       setSimulations(simulationsRes.items);
@@ -48,19 +50,20 @@ export function useSimulationData(refreshTrigger: number) {
       setTransactions(transactionsRes.items);
       setAgentToolUsage(toolUsageRes.items);
       setAgentModelUsage(modelUsageRes.items);
+      setServers(serversRes.items);
 
       const balances: Record<string, string> = {};
-      const servers: Record<string, Server[]> = {};
+      const agentServersMap: Record<string, Server[]> = {};
       for (const agent of agentsRes.items) {
         const [balance, agentServersData] = await Promise.all([
           api.agents.getBalance(agent.id),
           api.agents.getServers(agent.id),
         ]);
         balances[agent.id] = balance.balance;
-        servers[agent.id] = agentServersData;
+        agentServersMap[agent.id] = agentServersData;
       }
       setAgentBalances(balances);
-      setAgentServers(servers);
+      setAgentServers(agentServersMap);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -135,6 +138,7 @@ export function useSimulationData(refreshTrigger: number) {
     agentModelUsage,
     agentBalances,
     agentServers,
+    servers,
     isLoading,
     loadData,
     getModelName,

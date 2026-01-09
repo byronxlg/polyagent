@@ -20,6 +20,7 @@ from src.models import (
     AgentTask,
     AgentTrigger,
     AgentTriggerEvent,
+    McpServer,
     Message,
     Model,
     Principal,
@@ -272,6 +273,54 @@ def delete_model(model_id: UUID, db: Session = Depends(get_db)) -> dict[str, str
     db.delete(model)
     db.commit()
     return {"message": "Model deleted"}
+
+
+# ==================== MCP Servers ====================
+
+
+@app.get("/servers", response_model=PaginatedResponse[McpServerResponse], tags=["Servers"])
+def list_servers(
+    limit: int = DEFAULT_LIMIT,
+    offset: int = 0,
+    server_type: str | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    """List all MCP servers with optional type filter."""
+    query = db.query(McpServer).filter(McpServer.is_active.is_(True))
+    if server_type:
+        query = query.filter(McpServer.server_type == server_type)
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(items) < total,
+    }
+
+
+@app.get("/servers/{server_id}", response_model=McpServerResponse, tags=["Servers"])
+def get_server(server_id: UUID, db: Session = Depends(get_db)) -> McpServer:
+    """Get a specific MCP server by ID."""
+    server = db.query(McpServer).filter(McpServer.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    return server
+
+
+@app.get("/servers/{server_id}/agents", response_model=list[AgentResponse], tags=["Servers"])
+def get_server_agents(server_id: UUID, db: Session = Depends(get_db)) -> list[Agent]:
+    """Get all agents that have this server granted."""
+    server = db.query(McpServer).filter(McpServer.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    return (
+        db.query(Agent)
+        .join(AgentMcpServer)
+        .filter(AgentMcpServer.mcp_server_id == server_id)
+        .all()
+    )
 
 
 @app.post("/agents", response_model=AgentResponse, tags=["Agents"])

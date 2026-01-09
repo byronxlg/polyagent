@@ -20,6 +20,7 @@ import { SimulationSetupPage } from '@/pages/SimulationSetupPage';
 import { TasksPage } from '@/pages/TasksPage';
 import { AgentsPage } from '@/pages/AgentsPage';
 import { ModelsPage } from '@/pages/ModelsPage';
+import { ServersPage } from '@/pages/ServersPage';
 import { MessagesPage } from '@/pages/MessagesPage';
 import { TransactionsPage } from '@/pages/TransactionsPage';
 import { PrincipalsPage } from '@/pages/PrincipalsPage';
@@ -241,6 +242,27 @@ function PrincipalComponent() {
   );
 }
 
+function ServersListComponent() {
+  const { simulationData } = useRouterContext();
+  return <ServersPage simulationData={simulationData} />;
+}
+
+function ServerComponent() {
+  const { id } = simServerRoute.useParams();
+  const context = useRouterContext();
+  return (
+    <DetailView
+      selected={{ type: 'server', id }}
+      simulationData={context.simulationData}
+      onAcceptSubmission={context.handleAcceptSubmission}
+      onDenySubmission={context.handleDenySubmission}
+      onRunAgent={context.handleRunAgent}
+      processingSubmission={context.processingSubmission}
+      runningAgentId={context.runningAgentId}
+    />
+  );
+}
+
 function SimulationLayout() {
   const { simulationId } = simulationRoute.useParams();
   const { simulationData } = useRouterContext();
@@ -370,6 +392,18 @@ const simPrincipalRoute = createRoute({
   component: PrincipalComponent,
 });
 
+const simServersListRoute = createRoute({
+  getParentRoute: () => simulationRoute,
+  path: 'servers',
+  component: ServersListComponent,
+});
+
+const simServerRoute = createRoute({
+  getParentRoute: () => simulationRoute,
+  path: 'servers/$id',
+  component: ServerComponent,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '*',
@@ -387,6 +421,8 @@ const routeTree = rootRoute.addChildren([
     simAgentRoute,
     simModelsListRoute,
     simModelRoute,
+    simServersListRoute,
+    simServerRoute,
     simMessagesListRoute,
     simTransactionsListRoute,
     simPrincipalsListRoute,

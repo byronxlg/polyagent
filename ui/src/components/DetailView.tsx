@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from '@tanstack/react-router';
-import { Play, ChevronLeft, ChevronRight, ExternalLink, ChevronDown, Loader2, Copy, Check, Users, ListTodo } from 'lucide-react';
+import { Play, ChevronLeft, ChevronRight, ExternalLink, ChevronDown, Loader2, Copy, Check, Users, ListTodo, Server as ServerIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import Markdown from 'react-markdown';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,7 @@ export type SelectedItem =
   | { type: 'agent'; id: string }
   | { type: 'model'; id: string }
   | { type: 'principal'; id: string }
+  | { type: 'server'; id: string }
   | null;
 
 interface DetailViewProps {
@@ -973,6 +974,118 @@ export function DetailView({
                   </div>
                 </div>
               )}
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
+    );
+  }
+
+  if (selected.type === 'server') {
+    const server = simulationData.servers.find((s) => s.id === selected.id);
+    if (!server) return <ResourceNotFound resourceType="server" resourceId={selected.id} />;
+
+    // Find agents that have this server granted
+    const serverAgents: typeof agents = [];
+    for (const [agentId, agentServerList] of Object.entries(simulationData.agentServers)) {
+      if (agentServerList.some((s) => s.id === server.id)) {
+        const agent = agents.find((a) => a.id === agentId);
+        if (agent) serverAgents.push(agent);
+      }
+    }
+
+    return (
+      <div className="flex-1 flex flex-col p-6 overflow-hidden h-full">
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex items-center gap-3 mb-4 flex-shrink-0">
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-zinc-700 text-white text-lg font-bold">
+              <ServerIcon className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold">{server.name}</h2>
+                <Badge variant={server.server_type === 'system' ? 'secondary' : 'outline'}>
+                  {server.server_type}
+                </Badge>
+              </div>
+              <span className="text-sm text-muted-foreground">{server.transport} transport</span>
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="space-y-6 pr-4">
+              {/* ID */}
+              <IDCopyButton id={server.id} label="Server ID" />
+
+              {/* Description */}
+              <div className="border rounded-lg p-4">
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
+                <p className="text-base">{server.description}</p>
+              </div>
+
+              {/* Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4">
+                  <span className="text-sm text-muted-foreground">Type</span>
+                  <p className="text-lg font-semibold capitalize">{server.server_type}</p>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <span className="text-sm text-muted-foreground">Transport</span>
+                  <p className="text-lg font-semibold">{server.transport}</p>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <p className="text-lg font-semibold">
+                    {server.is_active ? (
+                      <span className="text-emerald-400">Active</span>
+                    ) : (
+                      <span className="text-red-400">Inactive</span>
+                    )}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <span className="text-sm text-muted-foreground">Agents with Access</span>
+                  <p className="text-lg font-semibold">{serverAgents.length}</p>
+                </div>
+              </div>
+
+              {/* Agents with access */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                  Agents with Access ({serverAgents.length})
+                </h3>
+                {serverAgents.length > 0 ? (
+                  <div className="space-y-2">
+                    {serverAgents.map((agent) => {
+                      const agentBalance = parseFloat(agentBalances[agent.id] || '0');
+                      return (
+                        <div key={agent.id} className="flex items-center gap-3 p-2 border rounded-lg">
+                          <Link
+                            to="/simulations/$simulationId/agents/$id"
+                            params={{ simulationId: String(simulationData.currentSimulation?.id), id: String(agent.id) }}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-zinc-700 text-white text-sm font-bold hover:bg-zinc-600 transition-colors cursor-pointer"
+                          >
+                            <Users className="h-4 w-4" />
+                          </Link>
+                          <Link
+                            to="/simulations/$simulationId/agents/$id"
+                            params={{ simulationId: String(simulationData.currentSimulation?.id), id: String(agent.id) }}
+                            className="inline-flex items-center gap-1 text-sm flex-1 text-left hover:underline cursor-pointer"
+                          >
+                            {simulationData.getAgentName(agent.id)}
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                          <span className={`font-mono text-sm ${agentBalance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            ${agentBalance.toFixed(4)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No agents have access to this server</p>
+                )}
+              </div>
             </div>
           </ScrollArea>
         </div>
