@@ -1,166 +1,228 @@
-"""LangChain agent middleware for tracking model and tool usage."""
+"""LangChain agent middleware for tracking usage and managing lifecycle.
+
+Uses decorator-based middleware:
+- @before_agent: Runs before agent starts (set is_running, validate balance)
+- @after_agent: Runs after agent completes (save reflection, clear is_running)
+- @wrap_model_call: Wraps model calls (track usage, deduct costs)
+- @wrap_tool_call: Wraps tool calls (track MCP tool usage)
+"""
 
 import logging
-from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 
-from langchain.agents.middleware import AgentMiddleware
-from langchain.agents.middleware.types import ModelRequest, ModelResponse, ToolCallRequest
-from langchain_core.messages import ToolMessage
+from langchain.agents.middleware import after_agent, before_agent, wrap_model_call, wrap_tool_call
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.database import SessionLocal
-from src.models import AgentMcpUsage, AgentModelUsage, McpServer, Model
+from src.models import Agent, AgentMcpUsage, AgentModelUsage, McpServer, Model
 from src.services.transaction_service import TransactionService
 
 logger = logging.getLogger(__name__)
 
 
-class ModelUsageMiddleware(AgentMiddleware):
-    """Middleware to track model usage, calculate costs, and deduct from agent balance."""
+@before_agent
+def validate_and_start(state, runtime):
+    """Set is_running=True and validate agent has positive balance."""
+    agent_id = runtime.context.get("agent_id")
+    if not agent_id:
+        return
 
-    def wrap_model_call(
-        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
-    ) -> ModelResponse:
-        """Track model usage before and after each LLM call."""
-        agent_id = request.runtime.context.get("agent_id")
-        model: Model = request.runtime.context.get("model")
+    session = SessionLocal()
+    try:
+        agent = session.query(Agent).filter(Agent.id == agent_id).first()
+        if agent:
+            agent.is_running = True
+            session.commit()
+            logger.debug(f"Agent {agent_id} is_running set to True")
+    finally:
+        session.close()
 
-        if not all([agent_id, model]):
-            return handler(request)
+    # Validate balance
+    transaction_service = TransactionService()
+    balance = transaction_service.get_balance(agent_id)
+    if balance < 0:
+        msg = f"Agent {agent_id} is in debt (${balance}) and cannot execute"
+        logger.warning(msg)
+        raise ValueError(msg)
 
-        transaction_service = TransactionService()
+    return
 
-        # Validate balance before call
-        balance = transaction_service.get_balance(agent_id)
-        if balance < 0:
-            msg = f"Agent {agent_id} is in debt (${balance}) and cannot make model calls"
-            logger.warning(msg)
-            raise ValueError(msg)
 
-        # Build input context for logging
-        messages = request.state.get("messages", [])
-        model_input = _build_model_input_context(messages)
+@after_agent
+def save_reflection_and_stop(state, runtime):
+    """Set is_running=False and save final reflection to memory."""
+    agent_id = runtime.context.get("agent_id")
+    if not agent_id:
+        return
 
-        # Execute model call
-        response = handler(request)
+    # Extract final message from state
+    messages = state.get("messages", [])
+    final_message = None
+    if messages:
+        last_msg = messages[-1]
+        final_message = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
-        # Extract usage and calculate cost
-        result_message = response.result[0]
-        input_tokens = 0
-        output_tokens = 0
-        if hasattr(result_message, "usage_metadata") and result_message.usage_metadata:
-            input_tokens = result_message.usage_metadata.get("input_tokens", 0)
-            output_tokens = result_message.usage_metadata.get("output_tokens", 0)
+    session = SessionLocal()
+    try:
+        agent = session.query(Agent).filter(Agent.id == agent_id).first()
+        if agent:
+            agent.is_running = False
 
-        input_cost = (Decimal(input_tokens) / Decimal(1_000_000)) * model.input_cost_per_million
-        output_cost = (Decimal(output_tokens) / Decimal(1_000_000)) * model.output_cost_per_million
-        total_cost = input_cost + output_cost
+            # Save reflection to memory
+            if final_message:
+                if agent.memory_json is None:
+                    agent.memory_json = {}
+                agent.memory_json["last_run_reflection"] = final_message
+                agent.memory_json["last_run_timestamp"] = datetime.utcnow().isoformat()
+                flag_modified(agent, "memory_json")
+                logger.info(f"Agent {agent_id} reflection saved: {final_message[:100]}...")
 
-        logger.info(
-            f"Agent {agent_id} model call: {input_tokens} input, "
-            f"{output_tokens} output tokens, cost ${total_cost:.6f}"
+            session.commit()
+            logger.debug(f"Agent {agent_id} is_running set to False")
+    finally:
+        session.close()
+
+    return
+
+
+@wrap_model_call
+def track_model_usage(request, handler):
+    """Track model usage, calculate costs, and deduct from agent balance."""
+    agent_id = request.runtime.context.get("agent_id")
+    model: Model = request.runtime.context.get("model")
+
+    if not all([agent_id, model]):
+        return handler(request)
+
+    transaction_service = TransactionService()
+
+    # Validate balance before call
+    balance = transaction_service.get_balance(agent_id)
+    if balance < 0:
+        msg = f"Agent {agent_id} is in debt (${balance}) and cannot make model calls"
+        logger.warning(msg)
+        raise ValueError(msg)
+
+    # Build input context for logging
+    messages = request.state.get("messages", [])
+    model_input = _build_model_input_context(messages)
+
+    # Execute model call
+    response = handler(request)
+
+    # Extract usage and calculate cost
+    result_message = response.result[0]
+    input_tokens = 0
+    output_tokens = 0
+    if hasattr(result_message, "usage_metadata") and result_message.usage_metadata:
+        input_tokens = result_message.usage_metadata.get("input_tokens", 0)
+        output_tokens = result_message.usage_metadata.get("output_tokens", 0)
+
+    input_cost = (Decimal(input_tokens) / Decimal(1_000_000)) * model.input_cost_per_million
+    output_cost = (Decimal(output_tokens) / Decimal(1_000_000)) * model.output_cost_per_million
+    total_cost = input_cost + output_cost
+
+    logger.info(
+        f"Agent {agent_id} model call: {input_tokens} input, "
+        f"{output_tokens} output tokens, cost ${total_cost:.6f}"
+    )
+
+    # Build output for logging
+    output_parts = []
+    if result_message.content:
+        output_parts.append(result_message.content)
+    if hasattr(result_message, "tool_calls") and result_message.tool_calls:
+        output_parts.append(f"Tool calls: {result_message.tool_calls}")
+    output = "\n".join(output_parts) or "(no output)"
+
+    # Record usage
+    session = SessionLocal()
+    try:
+        usage = AgentModelUsage(
+            agent_id=agent_id,
+            model_id=model.id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_cost=total_cost,
+            input=model_input,
+            output=output,
+            timestamp=datetime.utcnow(),
+        )
+        session.add(usage)
+        session.commit()
+        session.refresh(usage)
+        usage_id = usage.id
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+    # Deduct cost
+    if total_cost > 0:
+        transaction_service.deduct_dollars(
+            from_agent_id=agent_id,
+            amount=total_cost,
+            reason="model_usage",
+            reference_id=usage_id,
         )
 
-        # Build output for logging
-        output_parts = []
-        if result_message.content:
-            output_parts.append(result_message.content)
-        if hasattr(result_message, "tool_calls") and result_message.tool_calls:
-            output_parts.append(f"Tool calls: {result_message.tool_calls}")
-        output = "\n".join(output_parts) or "(no output)"
+    return response
 
-        # Record usage
-        session = SessionLocal()
-        try:
-            usage = AgentModelUsage(
+
+@wrap_tool_call
+def track_tool_usage(request, handler):
+    """Track MCP tool usage."""
+    agent_id = request.runtime.context.get("agent_id")
+
+    if not agent_id:
+        return handler(request)
+
+    # Record tool input
+    tool_name = request.tool_call.get("name", "unknown")
+    tool_input = str(request.tool_call.get("args", {}))
+
+    # Execute tool call
+    result = handler(request)
+
+    # Extract output
+    output_content = result.content if hasattr(result, "content") else str(result)
+
+    # Parse server name from tool name (e.g., "task__accept_task" -> server="task", tool="accept_task")
+    server_name = "unknown"
+    actual_tool_name = tool_name
+    if "__" in tool_name:
+        parts = tool_name.split("__", 1)
+        server_name = parts[0]
+        actual_tool_name = parts[1] if len(parts) > 1 else tool_name
+
+    # Look up server ID and record usage
+    session = SessionLocal()
+    try:
+        server = session.query(McpServer).filter(McpServer.name == server_name).first()
+        mcp_server_id = server.id if server else None
+
+        if mcp_server_id:
+            usage = AgentMcpUsage(
                 agent_id=agent_id,
-                model_id=model.id,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                total_cost=total_cost,
-                input=model_input,
-                output=output,
+                mcp_server_id=mcp_server_id,
+                tool_name=actual_tool_name,
+                input=tool_input[:500] if tool_input else "",
+                output=output_content[:500] if output_content else "",
                 timestamp=datetime.utcnow(),
             )
             session.add(usage)
             session.commit()
-            session.refresh(usage)
-            usage_id = usage.id
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+        else:
+            logger.warning(f"Could not find MCP server '{server_name}' for tool usage tracking")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
-        # Deduct cost
-        if total_cost > 0:
-            transaction_service.deduct_dollars(
-                from_agent_id=agent_id,
-                amount=total_cost,
-                reason="model_usage",
-                reference_id=usage_id,
-            )
-
-        return response
-
-
-class ToolUsageMiddleware(AgentMiddleware):
-    """Middleware to track MCP tool usage."""
-
-    def wrap_tool_call(
-        self, request: ToolCallRequest, handler: Callable[[ToolCallRequest], ToolMessage]
-    ) -> ToolMessage:
-        """Track tool usage for each tool call."""
-        agent_id = request.runtime.context.get("agent_id")
-
-        if not agent_id:
-            return handler(request)
-
-        # Record tool input
-        tool_name = request.tool_call.get("name", "unknown")
-        tool_input = str(request.tool_call.get("args", {}))
-
-        # Execute tool call
-        result = handler(request)
-
-        # Extract output
-        output_content = result.content if hasattr(result, "content") else str(result)
-
-        # Parse server name from tool name (e.g., "task__accept_task" -> server="task", tool="accept_task")
-        server_name = "unknown"
-        actual_tool_name = tool_name
-        if "__" in tool_name:
-            parts = tool_name.split("__", 1)
-            server_name = parts[0]
-            actual_tool_name = parts[1] if len(parts) > 1 else tool_name
-
-        # Look up server ID from server name
-        session = SessionLocal()
-        try:
-            server = session.query(McpServer).filter(McpServer.name == server_name).first()
-            mcp_server_id = server.id if server else None
-
-            if mcp_server_id:
-                usage = AgentMcpUsage(
-                    agent_id=agent_id,
-                    mcp_server_id=mcp_server_id,
-                    tool_name=actual_tool_name,
-                    input=tool_input[:500] if tool_input else "",
-                    output=output_content[:500] if output_content else "",
-                    timestamp=datetime.utcnow(),
-                )
-                session.add(usage)
-                session.commit()
-            else:
-                logger.warning(f"Could not find MCP server '{server_name}' for tool usage tracking")
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-
-        return result
+    return result
 
 
 def _build_model_input_context(messages: list) -> str:
@@ -179,3 +241,12 @@ def _build_model_input_context(messages: list) -> str:
             input_parts.insert(0, f"[{msg_type}] {content[:200]}")
             break
     return "\n".join(input_parts) if input_parts else ""
+
+
+# Export middleware instances for use in agent
+MIDDLEWARE = [
+    validate_and_start,
+    track_model_usage,
+    track_tool_usage,
+    save_reflection_and_stop,
+]

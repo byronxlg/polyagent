@@ -15,8 +15,7 @@ from uuid import UUID
 from langchain.agents import create_agent
 from langchain_litellm import ChatLiteLLM
 
-from src.agent.lifecycle import after_agent, before_agent
-from src.agent.middleware import ModelUsageMiddleware, ToolUsageMiddleware
+from src.agent.middleware import MIDDLEWARE
 from src.database import SessionLocal
 from src.models import Agent as AgentModel
 from src.models import Model
@@ -159,19 +158,13 @@ class Agent:
             logger.warning(f"Agent {self.agent_id} has no tools available")
             return "No tools available. Cannot perform any actions."
 
-        # Create agent with middleware for usage tracking
+        # Create agent with middleware for usage tracking and lifecycle
         agent = create_agent(
             model=self.llm,
             tools=self._tools,
             system_prompt=self._get_system_prompt(),
-            middleware=[
-                ModelUsageMiddleware(),
-                ToolUsageMiddleware(),
-            ],
+            middleware=MIDDLEWARE,
         )
-
-        before_agent(self.agent_id)
-        final_message = None
 
         try:
             # Invoke agent with context for middleware
@@ -190,6 +183,7 @@ class Agent:
             logger.info(f"Agent {self.agent_id} completed with {len(messages)} messages")
 
             # Extract final message
+            final_message = None
             if messages:
                 last_message = messages[-1]
                 final_message = last_message.content if hasattr(last_message, "content") else str(last_message)
@@ -201,7 +195,6 @@ class Agent:
             logger.error(f"Agent {self.agent_id} think() failed: {e}", exc_info=True)
             raise
         finally:
-            after_agent(self.agent_id, final_message=final_message)
             await self._close_mcp_client()
 
     def think(self) -> str:
