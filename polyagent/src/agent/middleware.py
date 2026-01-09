@@ -8,7 +8,7 @@ Uses decorator-based middleware:
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 @before_agent
-def validate_and_start(_state: dict[str, Any], runtime: Any) -> None:  # noqa: ANN401
+async def validate_and_start(_state: dict[str, Any], runtime: Any) -> None:  # noqa: ANN401
     """Set is_running=True and validate agent has positive balance."""
     if not runtime.context:
         return
@@ -68,7 +68,7 @@ def validate_and_start(_state: dict[str, Any], runtime: Any) -> None:  # noqa: A
 
 
 @after_agent
-def save_reflection_and_stop(state: dict[str, Any], runtime: Any) -> None:  # noqa: ANN401
+async def save_reflection_and_stop(state: dict[str, Any], runtime: Any) -> None:  # noqa: ANN401
     """Set is_running=False and save final reflection to memory."""
     if not runtime.context:
         return
@@ -107,16 +107,19 @@ def save_reflection_and_stop(state: dict[str, Any], runtime: Any) -> None:  # no
 
 
 @wrap_model_call
-def track_model_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # noqa: ANN401
+async def track_model_usage(
+    request: Any,  # noqa: ANN401
+    handler: Callable[[Any], Awaitable[Any]],
+) -> Any:  # noqa: ANN401
     """Track model usage, calculate costs, and deduct from agent balance."""
     if not request.runtime.context:
-        return handler(request)
+        return await handler(request)
 
     agent_id = request.runtime.context.agent_id
     model: Model = request.runtime.context.model
 
     if not all([agent_id, model]):
-        return handler(request)
+        return await handler(request)
 
     transaction_service = TransactionService()
 
@@ -132,7 +135,7 @@ def track_model_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # no
     model_input = _build_model_input_context(messages)
 
     # Execute model call
-    response = handler(request)
+    response = await handler(request)
 
     # Extract usage and calculate cost
     result_message = response.result[0]
@@ -195,22 +198,25 @@ def track_model_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # no
 
 
 @wrap_tool_call
-def track_tool_usage(request: Any, handler: Callable[[Any], Any]) -> Any:  # noqa: ANN401
+async def track_tool_usage(
+    request: Any,  # noqa: ANN401
+    handler: Callable[[Any], Awaitable[Any]],
+) -> Any:  # noqa: ANN401
     """Track MCP tool usage."""
     if not request.runtime.context:
-        return handler(request)
+        return await handler(request)
 
     agent_id = request.runtime.context.agent_id
 
     if not agent_id:
-        return handler(request)
+        return await handler(request)
 
     # Record tool input
     tool_name = request.tool_call.get("name", "unknown")
     tool_input = str(request.tool_call.get("args", {}))
 
     # Execute tool call
-    result = handler(request)
+    result = await handler(request)
 
     # Extract output
     output_content = result.content if hasattr(result, "content") else str(result)
