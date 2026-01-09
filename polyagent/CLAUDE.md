@@ -10,7 +10,7 @@ For general project information, see [../CLAUDE.md](../CLAUDE.md)
 ```bash
 cd polyagent
 uv sync
-cp .env.example .env  # Configure API keys and DATABASE_URL
+cp ../.env.example .env  # Configure API keys and DATABASE_URL
 ```
 
 ### Run API Server
