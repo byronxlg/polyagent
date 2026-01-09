@@ -876,7 +876,7 @@ export function DetailView({
                             params={{ simulationId: String(simulationData.currentSimulation?.id), id: String(agent.id) }}
                             className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-zinc-700 text-white text-sm font-bold hover:bg-zinc-600 transition-colors cursor-pointer"
                           >
-                            {agent.id}
+                            <Users className="h-4 w-4" />
                           </Link>
                           <Link
                             to="/simulations/$simulationId/agents/$id"
