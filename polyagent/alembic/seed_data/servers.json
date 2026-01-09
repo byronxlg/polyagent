@@ -4,8 +4,8 @@
     "description": "Task management tools: get tasks, accept, submit, and abandon tasks.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.task_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.task_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -13,8 +13,8 @@
     "description": "Memory storage tools: read/write structured key-value memory and unstructured notes.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.memory_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.memory_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -22,8 +22,8 @@
     "description": "Financial transaction tools: check balance and transfer dollars.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.transaction_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.transaction_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -31,8 +31,8 @@
     "description": "Agent management tools: profile, agents list, idle signaling, and agent creation.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.agent_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.agent_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -40,8 +40,8 @@
     "description": "Messaging tools: send messages and check inbox.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.message_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.message_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -49,8 +49,8 @@
     "description": "Usage tracking tools: model usage, tool usage, transactions, and task costs.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.usage_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.usage_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -58,8 +58,8 @@
     "description": "Principal lookup tools: list and get principals in the system.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.principal_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.principal_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -67,8 +67,8 @@
     "description": "Model information tools: get model costs and list available models.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.model_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.model_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -76,8 +76,8 @@
     "description": "MCP server creation tools: create, list, delete, and grant custom servers.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.tooling_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.tooling_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -85,8 +85,8 @@
     "description": "Event trigger tools: subscribe to database events and get triggered automatically.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.trigger_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.trigger_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   },
   {
@@ -94,8 +94,8 @@
     "description": "Internal reasoning tool: think through problems step by step without executing actions.",
     "server_type": "system",
     "transport": "stdio",
-    "command": "uv",
-    "args": ["run", "python", "-m", "src.mcp_servers.servers.think_server"],
+    "command": "python",
+    "args": ["-m", "src.mcp_servers.servers.think_server"],
     "created_by_principal_id": "a603702c-1e2f-4324-bd98-3c8e3232b477"
   }
 ]
