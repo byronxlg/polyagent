@@ -45,6 +45,7 @@ class Agent:
         self.server_service = ServerService()
         self._mcp_client = None
         self._tools = None
+        self._tool_to_server: dict[str, str] = {}
 
         # Load agent and model data
         session = SessionLocal()
@@ -109,19 +110,58 @@ class Agent:
         if not server_configs:
             logger.warning(f"Agent {self.agent_id} has no MCP servers granted")
             self._tools = []
+            self._tool_to_server = {}
             return
 
         self._mcp_client = MultiServerMCPClient(server_configs)
         self._tools = await self._mcp_client.get_tools()
 
+        # Build tool->server mapping by checking each tool's name against server tools
+        self._tool_to_server = {}
+        for tool in self._tools:
+            tool_name = tool.name if hasattr(tool, "name") else str(tool)
+            # Check tool metadata for server info, or infer from tool name
+            if hasattr(tool, "metadata") and tool.metadata:
+                server_name = tool.metadata.get("server", "unknown")
+            else:
+                # Try to find server by matching tool name patterns
+                server_name = self._infer_server_from_tool(tool_name, server_configs)
+            self._tool_to_server[tool_name] = server_name
+
         logger.info(
             f"Agent {self.agent_id} loaded {len(self._tools)} tools from {len(server_configs)} MCP servers"
         )
+
+    def _infer_server_from_tool(self, tool_name: str, server_configs: dict[str, Any]) -> str:
+        """Infer server name from tool name based on known patterns."""
+        # Map of known tool prefixes/patterns to server names
+        tool_patterns = {
+            "task": ["get_available_tasks", "accept_task", "submit_task", "abandon_task", "get_task_details"],
+            "message": ["send_message", "check_messages", "get_inbox", "get_outbox"],
+            "transaction": ["transfer_credits", "check_balance", "get_balance", "get_transaction_history"],
+            "memory": ["read_memory", "write_memory", "delete_memory", "list_memory"],
+            "agent": ["get_agents", "get_profile", "update_profile", "signal_idle", "get_agent_details"],
+            "model": ["get_model_costs", "list_models", "get_model_details"],
+            "tooling": ["create_mcp_server", "list_custom_servers", "get_server_template", "delete_server",
+                        "grant_server_access", "list_my_servers", "list_server_examples", "get_server_example"],
+            "trigger": ["subscribe_trigger", "unsubscribe_trigger", "list_triggers", "get_trigger_events"],
+            "principal": ["get_principals", "get_principal_details"],
+            "usage": ["get_model_usage", "get_tool_usage"],
+            "think": ["think"],
+        }
+
+        for server_name, patterns in tool_patterns.items():
+            matches_pattern = tool_name in patterns or any(tool_name.startswith(p) for p in patterns)
+            if matches_pattern and server_name in server_configs:
+                return server_name
+
+        return "unknown"
 
     async def _close_mcp_client(self) -> None:
         """Clean up MCP client reference."""
         self._mcp_client = None
         self._tools = None
+        self._tool_to_server = {}
 
     def get_balance(self) -> Decimal:
         return self.transaction_service.get_balance(self.agent_id)
@@ -175,6 +215,7 @@ class Agent:
                 context=AgentContext(
                     agent_id=self.agent_id,
                     model=self.model,
+                    tool_to_server=self._tool_to_server,
                 ),
             )
 

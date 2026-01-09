@@ -33,6 +33,7 @@ class AgentContext:
 
     agent_id: UUID | str | None = None
     model: Model | None = field(default=None, repr=False)
+    tool_to_server: dict[str, str] = field(default_factory=dict)  # tool_name -> server_name
 
 logger = logging.getLogger(__name__)
 
@@ -221,13 +222,9 @@ async def track_tool_usage(
     # Extract output
     output_content = result.content if hasattr(result, "content") else str(result)
 
-    # Parse server name from tool name (e.g., "task__accept_task" -> server="task", tool="accept_task")
-    server_name = "unknown"
-    actual_tool_name = tool_name
-    if "__" in tool_name:
-        parts = tool_name.split("__", 1)
-        server_name = parts[0]
-        actual_tool_name = parts[1] if len(parts) > 1 else tool_name
+    # Look up server name from context mapping
+    tool_to_server = request.runtime.context.tool_to_server or {}
+    server_name = tool_to_server.get(tool_name, "unknown")
 
     # Look up server ID and record usage
     session = SessionLocal()
@@ -239,7 +236,7 @@ async def track_tool_usage(
             usage = AgentMcpUsage(
                 agent_id=agent_id,
                 mcp_server_id=mcp_server_id,
-                tool_name=actual_tool_name,
+                tool_name=tool_name,
                 input=tool_input[:500] if tool_input else "",
                 output=output_content[:500] if output_content else "",
                 timestamp=datetime.utcnow(),
