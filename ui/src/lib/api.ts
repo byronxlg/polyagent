@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:8000';
+// Use /api in production (nginx proxy), localhost:8000 in development
+const API_BASE_URL = import.meta.env.PROD ? '/api' : 'http://localhost:8000';
 const DEFAULT_LIMIT = 30;
 
 export interface PaginatedResponse<T> {
