@@ -1,5 +1,5 @@
+import asyncio
 from collections.abc import Generator
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -464,12 +464,8 @@ def get_agent_servers(agent_id: UUID, db: Session = Depends(get_db)) -> list:
     return server_service.get_servers_for_agent(agent_id)
 
 
-def _execute_single_agent(agent_id: UUID) -> dict[str, str | UUID]:
-    """Execute a single agent autonomously.
-
-    This function is designed to be called from a thread pool for parallel execution.
-    Each agent manages its own database sessions internally.
-    """
+async def _execute_single_agent(agent_id: UUID) -> dict[str, str | UUID]:
+    """Execute a single agent autonomously."""
     try:
         executor = AgentExecutor(agent_id)
         balance = executor.get_balance()
@@ -477,7 +473,7 @@ def _execute_single_agent(agent_id: UUID) -> dict[str, str | UUID]:
         if balance < 0:
             return {"agent_id": agent_id, "status": "skipped", "message": "Agent is in debt"}
 
-        result = executor.think()
+        result = await executor.think_async()
 
         max_result_length = 100
         truncated_result = result[:max_result_length] + "..." if len(result) > max_result_length else result
@@ -486,7 +482,7 @@ def _execute_single_agent(agent_id: UUID) -> dict[str, str | UUID]:
         return {"agent_id": agent_id, "status": "error", "message": str(e)}
 
 
-def trigger_all_agents() -> None:
+async def trigger_all_agents() -> None:
     """Background task to trigger all agents to think in parallel."""
     db = SessionLocal()
     try:
@@ -497,12 +493,8 @@ def trigger_all_agents() -> None:
     if not agent_ids:
         return
 
-    # Execute all agents in parallel using a thread pool
-    with ThreadPoolExecutor(max_workers=len(agent_ids)) as executor:
-        futures = [executor.submit(_execute_single_agent, agent_id) for agent_id in agent_ids]
-        # Wait for all to complete (results are discarded in background task)
-        for future in as_completed(futures):
-            future.result()  # This will re-raise any exception from the thread
+    # Execute all agents concurrently
+    await asyncio.gather(*[_execute_single_agent(agent_id) for agent_id in agent_ids])
 
 
 @app.post("/tasks", response_model=TaskResponse, tags=["Tasks"])
@@ -695,7 +687,7 @@ def send_message(message: MessageCreate) -> Message:
 
 
 @app.post("/agents/{agent_id}/tick", tags=["Agent Execution"])
-def agent_tick(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str]:
+async def agent_tick(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str]:
     """Trigger an agent to think and take action autonomously."""
     agent = db.query(Agent).filter(Agent.id == agent_id).first()
     if not agent:
@@ -703,7 +695,7 @@ def agent_tick(agent_id: UUID, db: Session = Depends(get_db)) -> dict[str, str]:
 
     try:
         executor = AgentExecutor(agent_id)
-        result = executor.think()
+        result = await executor.think_async()
         return {"message": "Agent executed successfully", "result": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -719,20 +711,18 @@ def tick_all_agents_background(background_tasks: BackgroundTasks) -> dict[str, s
 
 
 @app.post("/agents/tick-all", tags=["Agent Execution"])
-def tick_all_agents(db: Session = Depends(get_db)) -> dict[str, list[dict[str, str | UUID]]]:
+async def tick_all_agents(db: Session = Depends(get_db)) -> dict[str, list[dict[str, str | UUID]]]:
     """Trigger all agents to think and take action autonomously in parallel."""
     agent_ids = [agent.id for agent in db.query(Agent).all()]
 
     if not agent_ids:
         return {"results": []}
 
-    # Execute all agents in parallel using a thread pool
-    with ThreadPoolExecutor(max_workers=len(agent_ids)) as executor:
-        futures = [executor.submit(_execute_single_agent, agent_id) for agent_id in agent_ids]
-        results = [future.result() for future in as_completed(futures)]
+    # Execute all agents concurrently
+    results = await asyncio.gather(*[_execute_single_agent(agent_id) for agent_id in agent_ids])
 
     # Sort results by agent_id for consistent ordering
-    results.sort(key=lambda x: x["agent_id"])
+    results = sorted(results, key=lambda x: x["agent_id"])
     return {"results": results}
 
 
