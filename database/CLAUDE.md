@@ -12,7 +12,7 @@ The project uses PostgreSQL in a Docker container for development.
 
 ```bash
 cd database
-docker-compose up -d
+docker compose up -d
 ```
 
 This starts:
@@ -37,22 +37,22 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/polyagent
 
 ```bash
 # Start database
-docker-compose up -d
+docker compose up -d
 
 # Stop database
-docker-compose down
+docker compose down
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Connect with psql
-docker-compose exec postgres psql -U postgres -d polyagent
+docker compose exec postgres psql -U postgres -d polyagent
 
 # Restart database
-docker-compose restart
+docker compose restart
 
 # Remove database (WARNING: deletes all data)
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Database Schema
@@ -199,20 +199,20 @@ SQLAlchemy handles connection pooling automatically:
 
 ```bash
 # Backup to file
-docker-compose exec postgres pg_dump -U postgres polyagent > backup.sql
+docker compose exec postgres pg_dump -U postgres polyagent > backup.sql
 
 # Compressed backup
-docker-compose exec postgres pg_dump -U postgres polyagent | gzip > backup.sql.gz
+docker compose exec postgres pg_dump -U postgres polyagent | gzip > backup.sql.gz
 ```
 
 ### Restore Database
 
 ```bash
 # Restore from file
-cat backup.sql | docker-compose exec -T postgres psql -U postgres polyagent
+cat backup.sql | docker compose exec -T postgres psql -U postgres polyagent
 
 # Restore from compressed
-gunzip -c backup.sql.gz | docker-compose exec -T postgres psql -U postgres polyagent
+gunzip -c backup.sql.gz | docker compose exec -T postgres psql -U postgres polyagent
 ```
 
 ## Troubleshooting
@@ -223,9 +223,9 @@ gunzip -c backup.sql.gz | docker-compose exec -T postgres psql -U postgres polya
 
 **Solutions:**
 - Check Docker is running: `docker ps`
-- Check database is running: `docker-compose ps`
+- Check database is running: `docker compose ps`
 - Check port 5432 isn't in use: `lsof -i :5432`
-- Restart database: `docker-compose restart`
+- Restart database: `docker compose restart`
 
 ### Migration Conflicts
 

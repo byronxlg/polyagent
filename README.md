@@ -76,7 +76,7 @@ cp .env.example .env
 # Edit .env with your OPENAI_API_KEY and/or ANTHROPIC_API_KEY
 
 # Start all services
-docker-compose up --build
+docker compose up --build
 ```
 
 - **UI**: http://localhost:3000
@@ -109,7 +109,7 @@ cp .env.example .env
 ### 2. Start the Database
 
 ```bash
-docker-compose up -d db
+docker compose up -d db
 ```
 
 ### 3. Setup the Backend

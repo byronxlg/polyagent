@@ -171,7 +171,7 @@ When leaving comments on PRs (reviews, issue comments, or general feedback):
 1. **Database Setup:**
    ```bash
    cd database
-   docker-compose up -d
+   docker compose up -d
    ```
 
 2. **Backend Setup:**
