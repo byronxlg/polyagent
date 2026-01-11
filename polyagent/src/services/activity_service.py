@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import desc, literal, union_all
 from sqlalchemy.orm import Session
 
-from src.models import Agent, AgentModelUsage, AgentTask, AgentToolUsage, Message, Transaction
+from src.models import Agent, AgentMcpUsage, AgentModelUsage, AgentTask, Message, Transaction
 
 
 class ActivityService:
@@ -79,13 +79,13 @@ class ActivityService:
 
         if "tool_usage" in types:
             tu_query = self.db.query(
-                AgentToolUsage.id.label("entity_id"),
+                AgentMcpUsage.id.label("entity_id"),
                 literal("tool_usage").label("type"),
-                AgentToolUsage.timestamp.label("timestamp"),
-                AgentToolUsage.agent_id.label("agent_id"),
+                AgentMcpUsage.timestamp.label("timestamp"),
+                AgentMcpUsage.agent_id.label("agent_id"),
             )
             if agent_id is not None:
-                tu_query = tu_query.filter(AgentToolUsage.agent_id == agent_id)
+                tu_query = tu_query.filter(AgentMcpUsage.agent_id == agent_id)
             subqueries.append(tu_query)
 
         if "model_usage" in types:
@@ -185,12 +185,12 @@ class ActivityService:
                 }
 
         elif entity_type == "tool_usage":
-            entity = self.db.query(AgentToolUsage).filter(AgentToolUsage.id == entity_id).first()
+            entity = self.db.query(AgentMcpUsage).filter(AgentMcpUsage.id == entity_id).first()
             if entity:
                 return {
                     "id": entity.id,
                     "agent_id": entity.agent_id,
-                    "server_name": entity.server_name,
+                    "mcp_server_id": entity.mcp_server_id,
                     "tool_name": entity.tool_name,
                     "input": entity.input,
                     "output": entity.output,

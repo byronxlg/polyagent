@@ -82,4 +82,4 @@ def transfer_dollars(principal_id: str, to_agent_id: str, amount: str) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)

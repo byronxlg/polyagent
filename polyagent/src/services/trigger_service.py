@@ -3,10 +3,8 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy.orm import Session
-
 from src.database import SessionLocal
-from src.models import Agent, AgentTrigger, AgentTriggerEvent, Simulation, SimulationConfig
+from src.models import Agent, AgentTrigger, AgentTriggerEvent, Simulation
 from src.schemas import TriggerChangeType, TriggerTableName
 
 
@@ -45,7 +43,7 @@ class TriggerService:
 
         session = SessionLocal()
         try:
-            # Get agent to find simulation_id
+            # Verify agent exists
             agent = session.query(Agent).filter(Agent.id == agent_id).first()
             if not agent:
                 msg = f"Agent {agent_id} not found"
@@ -71,7 +69,6 @@ class TriggerService:
 
             trigger = AgentTrigger(
                 agent_id=agent_id,
-                simulation_id=agent.simulation_id,
                 table_name=table_name,
                 change_type=change_type,
                 conditions=conditions or {},
@@ -103,7 +100,6 @@ class TriggerService:
     def list_subscriptions(
         self,
         agent_id: UUID | str | None = None,
-        simulation_id: UUID | str | None = None,
         *,
         is_active: bool | None = True,
     ) -> list[AgentTrigger]:
@@ -113,8 +109,6 @@ class TriggerService:
             query = session.query(AgentTrigger)
             if agent_id:
                 query = query.filter(AgentTrigger.agent_id == agent_id)
-            if simulation_id:
-                query = query.filter(AgentTrigger.simulation_id == simulation_id)
             if is_active is not None:
                 query = query.filter(AgentTrigger.is_active == is_active)
 
@@ -172,13 +166,18 @@ class TriggerService:
             session.close()
 
     def get_active_triggers_for_simulation(self, simulation_id: UUID | str) -> list[AgentTrigger]:
-        """Get all active triggers for a simulation."""
+        """Get all active triggers for agents in a simulation."""
         session = SessionLocal()
         try:
+            # Get agent IDs for this simulation
+            agent_ids = [a.id for a in session.query(Agent).filter(Agent.simulation_id == simulation_id).all()]
+            if not agent_ids:
+                return []
+
             triggers = (
                 session.query(AgentTrigger)
                 .filter(
-                    AgentTrigger.simulation_id == simulation_id,
+                    AgentTrigger.agent_id.in_(agent_ids),
                     AgentTrigger.is_active == True,  # noqa: E712
                 )
                 .all()
@@ -290,66 +289,51 @@ class TriggerEventService:
 class SimulationConfigService:
     """Service for managing simulation execution state."""
 
-    def get_or_create_config(self, simulation_id: UUID | str) -> SimulationConfig:
-        """Get simulation config, creating if doesn't exist."""
+    def get_simulation(self, simulation_id: UUID | str) -> Simulation:
+        """Get simulation by ID."""
         session = SessionLocal()
         try:
-            config = (
-                session.query(SimulationConfig).filter(SimulationConfig.simulation_id == simulation_id).first()
-            )
-            if not config:
-                # Verify simulation exists
-                simulation = session.query(Simulation).filter(Simulation.id == simulation_id).first()
-                if not simulation:
-                    msg = f"Simulation {simulation_id} not found"
-                    raise ValueError(msg)
-
-                config = SimulationConfig(
-                    simulation_id=simulation_id,
-                    is_paused=False,
-                    config_json={},
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
-                )
-                session.add(config)
-                session.commit()
-                session.refresh(config)
-            session.expunge(config)
-            return config
-        except Exception:
-            session.rollback()
-            raise
+            simulation = session.query(Simulation).filter(Simulation.id == simulation_id).first()
+            if not simulation:
+                msg = f"Simulation {simulation_id} not found"
+                raise ValueError(msg)
+            session.expunge(simulation)
+            return simulation
         finally:
             session.close()
 
-    def pause_simulation(self, simulation_id: UUID | str) -> SimulationConfig:
+    def pause_simulation(self, simulation_id: UUID | str) -> Simulation:
         """Pause a simulation (agents won't be triggered)."""
         session = SessionLocal()
         try:
-            config = self._get_or_create_config_in_session(session, simulation_id)
-            config.is_paused = True
-            config.updated_at = datetime.utcnow()
+            simulation = session.query(Simulation).filter(Simulation.id == simulation_id).first()
+            if not simulation:
+                msg = f"Simulation {simulation_id} not found"
+                raise ValueError(msg)
+            simulation.is_paused = True
             session.commit()
-            session.refresh(config)
-            session.expunge(config)
-            return config
+            session.refresh(simulation)
+            session.expunge(simulation)
+            return simulation
         except Exception:
             session.rollback()
             raise
         finally:
             session.close()
 
-    def resume_simulation(self, simulation_id: UUID | str) -> SimulationConfig:
+    def resume_simulation(self, simulation_id: UUID | str) -> Simulation:
         """Resume a paused simulation."""
         session = SessionLocal()
         try:
-            config = self._get_or_create_config_in_session(session, simulation_id)
-            config.is_paused = False
-            config.updated_at = datetime.utcnow()
+            simulation = session.query(Simulation).filter(Simulation.id == simulation_id).first()
+            if not simulation:
+                msg = f"Simulation {simulation_id} not found"
+                raise ValueError(msg)
+            simulation.is_paused = False
             session.commit()
-            session.refresh(config)
-            session.expunge(config)
-            return config
+            session.refresh(simulation)
+            session.expunge(simulation)
+            return simulation
         except Exception:
             session.rollback()
             raise
@@ -358,28 +342,8 @@ class SimulationConfigService:
 
     def is_paused(self, simulation_id: UUID | str) -> bool:
         """Check if a simulation is paused."""
-        config = self.get_or_create_config(simulation_id)
-        return config.is_paused
-
-    def _get_or_create_config_in_session(self, session: Session, simulation_id: UUID | str) -> SimulationConfig:
-        """Get or create config within an existing session."""
-        config = session.query(SimulationConfig).filter(SimulationConfig.simulation_id == simulation_id).first()
-        if not config:
-            simulation = session.query(Simulation).filter(Simulation.id == simulation_id).first()
-            if not simulation:
-                msg = f"Simulation {simulation_id} not found"
-                raise ValueError(msg)
-
-            config = SimulationConfig(
-                simulation_id=simulation_id,
-                is_paused=False,
-                config_json={},
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-            )
-            session.add(config)
-            session.flush()
-        return config
+        simulation = self.get_simulation(simulation_id)
+        return simulation.is_paused
 
 
 class EventMatcherService:

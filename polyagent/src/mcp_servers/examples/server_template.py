@@ -38,4 +38,4 @@ def another_tool(principal_id: str, value: int) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)

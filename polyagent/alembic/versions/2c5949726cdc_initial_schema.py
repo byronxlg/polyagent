@@ -1,8 +1,8 @@
-"""initial schema with uuid
+"""initial schema
 
-Revision ID: 8e04ff2c6804
+Revision ID: 2c5949726cdc
 Revises: 
-Create Date: 2025-12-21 16:47:28.025365
+Create Date: 2025-12-30 18:24:57.721170
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '8e04ff2c6804'
+revision: str = '2c5949726cdc'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -43,6 +43,22 @@ def upgrade() -> None:
     sa.UniqueConstraint('email'),
     sa.UniqueConstraint('username')
     )
+    op.create_table('mcp_servers',
+    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
+    sa.Column('created_by_principal_id', sa.UUID(), nullable=False),
+    sa.Column('name', sa.String(), nullable=False),
+    sa.Column('description', sa.Text(), nullable=False),
+    sa.Column('server_type', sa.String(), nullable=False),
+    sa.Column('transport', sa.String(), nullable=False),
+    sa.Column('command', sa.String(), nullable=False),
+    sa.Column('args', sa.JSON(), nullable=True),
+    sa.Column('env', sa.JSON(), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['created_by_principal_id'], ['principals.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('name')
+    )
     op.create_table('messages',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('from_principal_id', sa.UUID(), nullable=False),
@@ -59,20 +75,10 @@ def upgrade() -> None:
     sa.Column('principal_id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('is_paused', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['principal_id'], ['principals.id'], ),
     sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('tools',
-    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('created_by_principal_id', sa.UUID(), nullable=False),
-    sa.Column('name', sa.String(), nullable=False),
-    sa.Column('description', sa.Text(), nullable=False),
-    sa.Column('category', sa.String(), nullable=True),
-    sa.Column('scope', sa.String(), nullable=False),
-    sa.ForeignKeyConstraint(['created_by_principal_id'], ['principals.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
     )
     op.create_table('transactions',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
@@ -94,7 +100,7 @@ def upgrade() -> None:
     sa.Column('created_by_principal_id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(), nullable=True),
     sa.Column('public_profile', sa.Text(), nullable=True),
-    sa.Column('memory_json', sa.JSON(), nullable=False),
+    sa.Column('memory_json', sa.JSON(), server_default=sa.text("'{}'"), nullable=True),
     sa.Column('memory_text', sa.Text(), nullable=True),
     sa.Column('is_running', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
@@ -119,6 +125,41 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['simulation_id'], ['simulations.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('agent_mcp_servers',
+    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
+    sa.Column('agent_id', sa.UUID(), nullable=False),
+    sa.Column('mcp_server_id', sa.UUID(), nullable=False),
+    sa.Column('granted_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ),
+    sa.ForeignKeyConstraint(['mcp_server_id'], ['mcp_servers.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('agent_mcp_usage',
+    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
+    sa.Column('agent_id', sa.UUID(), nullable=False),
+    sa.Column('mcp_server_id', sa.UUID(), nullable=False),
+    sa.Column('tool_name', sa.String(), nullable=False),
+    sa.Column('input', sa.Text(), nullable=False),
+    sa.Column('output', sa.Text(), nullable=False),
+    sa.Column('timestamp', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ),
+    sa.ForeignKeyConstraint(['mcp_server_id'], ['mcp_servers.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('agent_model_usage',
+    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
+    sa.Column('agent_id', sa.UUID(), nullable=False),
+    sa.Column('model_id', sa.UUID(), nullable=False),
+    sa.Column('input_tokens', sa.Integer(), nullable=False),
+    sa.Column('output_tokens', sa.Integer(), nullable=False),
+    sa.Column('total_cost', sa.Numeric(precision=20, scale=10), nullable=False),
+    sa.Column('input', sa.Text(), nullable=False),
+    sa.Column('output', sa.Text(), nullable=False),
+    sa.Column('timestamp', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ),
+    sa.ForeignKeyConstraint(['model_id'], ['models.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('agent_tasks',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('task_id', sa.UUID(), nullable=False),
@@ -131,60 +172,63 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('agent_tools',
+    op.create_table('agent_triggers',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('agent_id', sa.UUID(), nullable=False),
-    sa.Column('tool_id', sa.UUID(), nullable=False),
-    sa.Column('granted_at', sa.DateTime(), nullable=False),
+    sa.Column('table_name', sa.String(), nullable=False),
+    sa.Column('change_type', sa.String(), nullable=False),
+    sa.Column('conditions', sa.JSON(), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('last_triggered_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ),
-    sa.ForeignKeyConstraint(['tool_id'], ['tools.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('agent_model_usage',
+    op.create_index(op.f('ix_agent_triggers_agent_id'), 'agent_triggers', ['agent_id'], unique=False)
+    op.create_index(op.f('ix_agent_triggers_is_active'), 'agent_triggers', ['is_active'], unique=False)
+    op.create_table('agent_trigger_events',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
+    sa.Column('trigger_id', sa.UUID(), nullable=False),
     sa.Column('agent_id', sa.UUID(), nullable=False),
-    sa.Column('model_id', sa.UUID(), nullable=False),
-    sa.Column('agent_task_id', sa.UUID(), nullable=True),
-    sa.Column('input_tokens', sa.Integer(), nullable=False),
-    sa.Column('output_tokens', sa.Integer(), nullable=False),
-    sa.Column('total_cost', sa.Numeric(precision=20, scale=10), nullable=False),
-    sa.Column('input', sa.Text(), nullable=False),
-    sa.Column('output', sa.Text(), nullable=False),
-    sa.Column('timestamp', sa.DateTime(), nullable=False),
+    sa.Column('table_name', sa.String(), nullable=False),
+    sa.Column('record_id', sa.UUID(), nullable=False),
+    sa.Column('change_type', sa.String(), nullable=False),
+    sa.Column('matched_conditions', sa.JSON(), nullable=True),
+    sa.Column('agent_executed', sa.Boolean(), nullable=False),
+    sa.Column('execution_started_at', sa.DateTime(), nullable=True),
+    sa.Column('execution_completed_at', sa.DateTime(), nullable=True),
+    sa.Column('execution_error', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ),
-    sa.ForeignKeyConstraint(['agent_task_id'], ['agent_tasks.id'], ),
-    sa.ForeignKeyConstraint(['model_id'], ['models.id'], ),
+    sa.ForeignKeyConstraint(['trigger_id'], ['agent_triggers.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('agent_tool_usage',
-    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
-    sa.Column('agent_id', sa.UUID(), nullable=False),
-    sa.Column('tool_id', sa.UUID(), nullable=False),
-    sa.Column('agent_task_id', sa.UUID(), nullable=True),
-    sa.Column('input', sa.Text(), nullable=False),
-    sa.Column('output', sa.Text(), nullable=False),
-    sa.Column('timestamp', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ),
-    sa.ForeignKeyConstraint(['agent_task_id'], ['agent_tasks.id'], ),
-    sa.ForeignKeyConstraint(['tool_id'], ['tools.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
+    op.create_index(op.f('ix_agent_trigger_events_agent_id'), 'agent_trigger_events', ['agent_id'], unique=False)
+    op.create_index(op.f('ix_agent_trigger_events_created_at'), 'agent_trigger_events', ['created_at'], unique=False)
+    op.create_index(op.f('ix_agent_trigger_events_trigger_id'), 'agent_trigger_events', ['trigger_id'], unique=False)
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_table('agent_tool_usage')
-    op.drop_table('agent_model_usage')
-    op.drop_table('agent_tools')
+    op.drop_index(op.f('ix_agent_trigger_events_trigger_id'), table_name='agent_trigger_events')
+    op.drop_index(op.f('ix_agent_trigger_events_created_at'), table_name='agent_trigger_events')
+    op.drop_index(op.f('ix_agent_trigger_events_agent_id'), table_name='agent_trigger_events')
+    op.drop_table('agent_trigger_events')
+    op.drop_index(op.f('ix_agent_triggers_is_active'), table_name='agent_triggers')
+    op.drop_index(op.f('ix_agent_triggers_agent_id'), table_name='agent_triggers')
+    op.drop_table('agent_triggers')
     op.drop_table('agent_tasks')
+    op.drop_table('agent_model_usage')
+    op.drop_table('agent_mcp_usage')
+    op.drop_table('agent_mcp_servers')
     op.drop_table('tasks')
     op.drop_table('agents')
     op.drop_table('transactions')
-    op.drop_table('tools')
     op.drop_table('simulations')
     op.drop_table('messages')
+    op.drop_table('mcp_servers')
     op.drop_table('principals')
     op.drop_table('models')
     # ### end Alembic commands ###

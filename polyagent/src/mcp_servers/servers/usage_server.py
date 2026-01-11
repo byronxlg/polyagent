@@ -23,14 +23,12 @@ def _get_agent_id(principal_id: str) -> str | None:
 def get_my_model_usage(
     principal_id: str,
     limit: int = 10,
-    agent_task_id: str | None = None,
 ) -> dict:
     """Get your recent model usage history showing tokens and costs.
 
     Args:
         principal_id: Your principal ID (injected by agent)
         limit: Maximum number of records to return (default 10)
-        agent_task_id: Optional - filter by specific task
     """
     agent_id = _get_agent_id(principal_id)
     if not agent_id:
@@ -39,7 +37,6 @@ def get_my_model_usage(
     service = UsageService()
     records, summary = service.get_model_usage(
         agent_id,
-        agent_task_id=agent_task_id,
         limit=limit,
     )
     return {
@@ -51,18 +48,16 @@ def get_my_model_usage(
 
 
 @mcp.tool()
-def get_my_tool_usage(
+def get_my_mcp_usage(
     principal_id: str,
     limit: int = 20,
-    agent_task_id: str | None = None,
     tool_name: str | None = None,
 ) -> dict:
-    """Get your recent tool usage history.
+    """Get your recent MCP tool usage history.
 
     Args:
         principal_id: Your principal ID (injected by agent)
         limit: Maximum number of records to return (default 20)
-        agent_task_id: Optional - filter by specific task
         tool_name: Optional - filter by specific tool
     """
     agent_id = _get_agent_id(principal_id)
@@ -70,9 +65,8 @@ def get_my_tool_usage(
         return {"success": False, "error": "Agent not found"}
 
     service = UsageService()
-    records, summary = service.get_tool_usage(
+    records, summary = service.get_mcp_usage(
         agent_id,
-        agent_task_id=agent_task_id,
         tool_name=tool_name,
         limit=limit,
     )
@@ -118,25 +112,5 @@ def get_my_transactions(
     }
 
 
-@mcp.tool()
-def get_task_cost_summary(principal_id: str, agent_task_id: str) -> dict:
-    """Get a cost summary for a specific task you worked on.
-
-    Args:
-        principal_id: Your principal ID (injected by agent)
-        agent_task_id: The agent task ID to get costs for
-    """
-    agent_id = _get_agent_id(principal_id)
-    if not agent_id:
-        return {"success": False, "error": "Agent not found"}
-
-    service = UsageService()
-    summary = service.get_task_cost_summary(agent_id, agent_task_id)
-    return {
-        "success": True,
-        **summary,
-    }
-
-
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)

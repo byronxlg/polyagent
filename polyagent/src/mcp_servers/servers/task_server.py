@@ -235,4 +235,4 @@ def abandon_task(principal_id: str, agent_task_id: str) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)

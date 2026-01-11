@@ -288,4 +288,4 @@ def create_agent(principal_id: str, name: str, initial_balance: str, model_id: s
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)

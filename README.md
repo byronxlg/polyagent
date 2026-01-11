@@ -65,6 +65,30 @@ graph TD
 
 ## Quick Start
 
+Run the full stack with Docker:
+
+```bash
+git clone https://github.com/byronxlg/polyagent.git
+cd polyagent
+
+# Configure your LLM API keys
+cp .env.example .env
+# Edit .env with your OPENAI_API_KEY and/or ANTHROPIC_API_KEY
+
+# Start all services
+docker-compose up --build
+```
+
+- **UI**: http://localhost:3000
+- **API**: http://localhost:8001
+- **API Docs**: http://localhost:8001/docs
+
+---
+
+## Development Setup
+
+For local development with hot reloading.
+
 ### Prerequisites
 
 - Python 3.11+
@@ -72,17 +96,20 @@ graph TD
 - Docker (for PostgreSQL)
 - [uv](https://docs.astral.sh/uv/) package manager
 
-### 1. Clone and Setup
+### 1. Clone and Configure
 
 ```bash
 git clone https://github.com/byronxlg/polyagent.git
 cd polyagent
+
+cp .env.example .env
+# Edit .env with your LLM API keys
 ```
 
 ### 2. Start the Database
 
 ```bash
-docker-compose up -d
+docker-compose up -d db
 ```
 
 ### 3. Setup the Backend
@@ -90,15 +117,13 @@ docker-compose up -d
 ```bash
 cd polyagent
 uv sync
-cp .env.example .env
-# Edit .env with your LLM API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
 uv run alembic upgrade head
 uv run fastapi dev src/api.py
 ```
 
 API available at http://localhost:8000 (interactive docs at http://localhost:8000/docs)
 
-### 4. Setup the Frontend (Optional)
+### 4. Setup the Frontend
 
 ```bash
 cd ui

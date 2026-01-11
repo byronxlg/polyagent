@@ -29,7 +29,7 @@ class Principal(Base):
     )
     simulations: Mapped[list["Simulation"]] = relationship(back_populates="principal")
     created_tasks: Mapped[list["Task"]] = relationship(back_populates="created_by")
-    servers: Mapped[list["Server"]] = relationship(back_populates="created_by")
+    mcp_servers: Mapped[list["McpServer"]] = relationship(back_populates="created_by")
     sent_messages: Mapped[list["Message"]] = relationship(
         back_populates="sender", foreign_keys="Message.from_principal_id"
     )
@@ -53,13 +53,12 @@ class Simulation(Base):
     principal_id: Mapped[UUID] = mapped_column(ForeignKey("principals.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     principal: Mapped["Principal"] = relationship(back_populates="simulations")
     agents: Mapped[list["Agent"]] = relationship(back_populates="simulation")
     tasks: Mapped[list["Task"]] = relationship(back_populates="simulation")
-    triggers: Mapped[list["AgentTrigger"]] = relationship(back_populates="simulation")
-    config: Mapped["SimulationConfig | None"] = relationship(back_populates="simulation", uselist=False)
 
 
 class Model(Base):
@@ -107,9 +106,9 @@ class Agent(Base):
         back_populates="created_agents", foreign_keys=[created_by_principal_id]
     )
     agent_tasks: Mapped[list["AgentTask"]] = relationship(back_populates="agent")
-    servers: Mapped[list["AgentServer"]] = relationship(back_populates="agent")
+    mcp_servers: Mapped[list["AgentMcpServer"]] = relationship(back_populates="agent")
     model_usage: Mapped[list["AgentModelUsage"]] = relationship(back_populates="agent")
-    tool_usage: Mapped[list["AgentToolUsage"]] = relationship(back_populates="agent")
+    mcp_usage: Mapped[list["AgentMcpUsage"]] = relationship(back_populates="agent")
     triggers: Mapped[list["AgentTrigger"]] = relationship(back_populates="agent")
 
 
@@ -157,8 +156,6 @@ class AgentTask(Base):
 
     task: Mapped["Task"] = relationship(back_populates="agent_tasks")
     agent: Mapped["Agent"] = relationship(back_populates="agent_tasks")
-    model_usage: Mapped[list["AgentModelUsage"]] = relationship(back_populates="agent_task")
-    tool_usage: Mapped[list["AgentToolUsage"]] = relationship(back_populates="agent_task")
 
 
 class Message(Base):
@@ -179,10 +176,10 @@ class Message(Base):
     )
 
 
-class Server(Base):
+class McpServer(Base):
     """MCP server configuration."""
 
-    __tablename__ = "servers"
+    __tablename__ = "mcp_servers"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
@@ -198,24 +195,24 @@ class Server(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
-    created_by: Mapped["Principal"] = relationship(back_populates="servers")
-    agent_servers: Mapped[list["AgentServer"]] = relationship(back_populates="server")
+    created_by: Mapped["Principal"] = relationship(back_populates="mcp_servers")
+    agent_mcp_servers: Mapped[list["AgentMcpServer"]] = relationship(back_populates="mcp_server")
 
 
-class AgentServer(Base):
+class AgentMcpServer(Base):
     """Junction table for agent-to-MCP server grants."""
 
-    __tablename__ = "agent_servers"
+    __tablename__ = "agent_mcp_servers"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
     )
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id"), nullable=False)
-    server_id: Mapped[UUID] = mapped_column(ForeignKey("servers.id"), nullable=False)
+    mcp_server_id: Mapped[UUID] = mapped_column(ForeignKey("mcp_servers.id"), nullable=False)
     granted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
-    agent: Mapped["Agent"] = relationship(back_populates="servers")
-    server: Mapped["Server"] = relationship(back_populates="agent_servers")
+    agent: Mapped["Agent"] = relationship(back_populates="mcp_servers")
+    mcp_server: Mapped["McpServer"] = relationship(back_populates="agent_mcp_servers")
 
 
 class AgentModelUsage(Base):
@@ -226,7 +223,6 @@ class AgentModelUsage(Base):
     )
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id"), nullable=False)
     model_id: Mapped[UUID] = mapped_column(ForeignKey("models.id"), nullable=False)
-    agent_task_id: Mapped[UUID | None] = mapped_column(ForeignKey("agent_tasks.id"), nullable=True)
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     total_cost: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=10), nullable=False)
@@ -236,7 +232,6 @@ class AgentModelUsage(Base):
 
     agent: Mapped["Agent"] = relationship(back_populates="model_usage")
     model: Mapped["Model"] = relationship(back_populates="usage_records")
-    agent_task: Mapped["AgentTask | None"] = relationship(back_populates="model_usage")
 
 
 class Transaction(Base):
@@ -260,22 +255,23 @@ class Transaction(Base):
     )
 
 
-class AgentToolUsage(Base):
-    __tablename__ = "agent_tool_usage"
+class AgentMcpUsage(Base):
+    """Tracks individual MCP tool calls made by agents."""
+
+    __tablename__ = "agent_mcp_usage"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
     )
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id"), nullable=False)
-    server_name: Mapped[str] = mapped_column(String, nullable=False)  # MCP server name
+    mcp_server_id: Mapped[UUID] = mapped_column(ForeignKey("mcp_servers.id"), nullable=False)
     tool_name: Mapped[str] = mapped_column(String, nullable=False)  # Tool name within server
-    agent_task_id: Mapped[UUID | None] = mapped_column(ForeignKey("agent_tasks.id"), nullable=True)
     input: Mapped[str] = mapped_column(Text, nullable=False)
     output: Mapped[str] = mapped_column(Text, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
-    agent: Mapped["Agent"] = relationship(back_populates="tool_usage")
-    agent_task: Mapped["AgentTask | None"] = relationship(back_populates="tool_usage")
+    agent: Mapped["Agent"] = relationship(back_populates="mcp_usage")
+    mcp_server: Mapped["McpServer"] = relationship()
 
 
 class AgentTrigger(Base):
@@ -287,7 +283,6 @@ class AgentTrigger(Base):
         PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
     )
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
-    simulation_id: Mapped[UUID] = mapped_column(ForeignKey("simulations.id"), nullable=False, index=True)
     table_name: Mapped[str] = mapped_column(String, nullable=False)  # "tasks", "messages", "agent_tasks"
     change_type: Mapped[str] = mapped_column(String, nullable=False)  # "INSERT", "UPDATE", "DELETE"
     conditions: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # {"column": "value"} filters
@@ -296,7 +291,6 @@ class AgentTrigger(Base):
     last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     agent: Mapped["Agent"] = relationship(back_populates="triggers")
-    simulation: Mapped["Simulation"] = relationship(back_populates="triggers")
     trigger_events: Mapped[list["AgentTriggerEvent"]] = relationship(back_populates="trigger")
 
 
@@ -322,20 +316,3 @@ class AgentTriggerEvent(Base):
 
     trigger: Mapped["AgentTrigger"] = relationship(back_populates="trigger_events")
     agent: Mapped["Agent"] = relationship()
-
-
-class SimulationConfig(Base):
-    """Simulation-level configuration including pause state."""
-
-    __tablename__ = "simulation_configs"
-
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
-    )
-    simulation_id: Mapped[UUID] = mapped_column(ForeignKey("simulations.id"), nullable=False, unique=True)
-    is_paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
-    config_json: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
-
-    simulation: Mapped["Simulation"] = relationship(back_populates="config")

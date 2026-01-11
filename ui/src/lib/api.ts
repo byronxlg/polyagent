@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = '/api';
 const DEFAULT_LIMIT = 30;
 
 export interface PaginatedResponse<T> {
@@ -100,15 +100,18 @@ export interface AgentBalance {
   balance: string;
 }
 
-export interface AgentToolUsage {
+export interface AgentMcpUsage {
   id: string;
   agent_id: string;
-  tool_id: string;
+  mcp_server_id: string;
   tool_name: string;
-  input: string;
-  output: string;
+  input: string | null;
+  output: string | null;
   timestamp: string;
 }
+
+// Alias for backward compatibility
+export type AgentToolUsage = AgentMcpUsage;
 
 export interface AgentModelUsage {
   id: string;
@@ -424,10 +427,10 @@ export const api = {
     },
   },
   agentToolUsage: {
-    list: async (agentId?: string, limit = DEFAULT_LIMIT, offset = 0): Promise<PaginatedResponse<AgentToolUsage>> => {
+    list: async (agentId?: string, limit = DEFAULT_LIMIT, offset = 0): Promise<PaginatedResponse<AgentMcpUsage>> => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       if (agentId) params.set('agent_id', agentId);
-      const response = await fetch(`${API_BASE_URL}/agent-tool-usage?${params}`);
+      const response = await fetch(`${API_BASE_URL}/agent-mcp-usage?${params}`);
       return response.json();
     },
   },
@@ -452,6 +455,28 @@ export const api = {
       if (options?.agentId) params.set('agent_id', options.agentId);
       if (options?.types?.length) params.set('types', options.types.join(','));
       const response = await fetch(`${API_BASE_URL}/activity?${params}`);
+      return response.json();
+    },
+  },
+  servers: {
+    list: async (limit = DEFAULT_LIMIT, offset = 0, serverType?: string): Promise<PaginatedResponse<Server>> => {
+      const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      if (serverType) params.set('server_type', serverType);
+      const response = await fetch(`${API_BASE_URL}/servers?${params}`);
+      return response.json();
+    },
+    get: async (id: string): Promise<Server> => {
+      const response = await fetch(`${API_BASE_URL}/servers/${id}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Server not found');
+        }
+        throw new Error(`Failed to fetch server: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    getAgents: async (id: string): Promise<Agent[]> => {
+      const response = await fetch(`${API_BASE_URL}/servers/${id}/agents`);
       return response.json();
     },
   },

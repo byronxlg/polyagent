@@ -1,9 +1,8 @@
-PGPASSWORD=agent psql -h localhost -U agent -d polyagent -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO agent; GRANT ALL ON SCHEMA public TO public;"
+#!/bin/bash
+# Reset the database to a clean state and start the API server
 
-find ./agent/tools/custom -type f -delete
-touch ./agent/tools/custom/__init__.py
+PGPASSWORD=agent psql -h localhost -U agent -d polyagent -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO agent; GRANT ALL ON SCHEMA public TO public;"
 
 uv run alembic upgrade head
 
-
-fastapi run
+uv run fastapi dev src/api.py
