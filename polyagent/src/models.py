@@ -316,5 +316,3 @@ class AgentTriggerEvent(Base):
 
     trigger: Mapped["AgentTrigger"] = relationship(back_populates="trigger_events")
     agent: Mapped["Agent"] = relationship()
-
-

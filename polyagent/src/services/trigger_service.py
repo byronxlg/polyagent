@@ -170,9 +170,7 @@ class TriggerService:
         session = SessionLocal()
         try:
             # Get agent IDs for this simulation
-            agent_ids = [
-                a.id for a in session.query(Agent).filter(Agent.simulation_id == simulation_id).all()
-            ]
+            agent_ids = [a.id for a in session.query(Agent).filter(Agent.simulation_id == simulation_id).all()]
             if not agent_ids:
                 return []
 

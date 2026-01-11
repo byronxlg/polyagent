@@ -35,6 +35,7 @@ class AgentContext:
     model: Model | None = field(default=None, repr=False)
     tool_to_server: dict[str, str] = field(default_factory=dict)  # tool_name -> server_name
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -227,8 +228,7 @@ async def track_tool_usage(
         elif isinstance(content, list):
             # Content blocks - extract text from each
             texts = [
-                block.get("text", str(block)) if isinstance(block, dict) else str(block)
-                for block in content
+                block.get("text", str(block)) if isinstance(block, dict) else str(block) for block in content
             ]
             output_content = "\n".join(texts)
         else:

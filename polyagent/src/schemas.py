@@ -447,5 +447,3 @@ class AgentTriggerEventResponse(BaseModel):
     @field_serializer("created_at", "execution_started_at", "execution_completed_at")
     def serialize_dt(self, dt: datetime | None) -> str | None:
         return dt.isoformat() + "Z" if dt else None
-
-

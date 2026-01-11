@@ -315,12 +315,7 @@ def get_server_agents(server_id: UUID, db: Session = Depends(get_db)) -> list[Ag
     server = db.query(McpServer).filter(McpServer.id == server_id).first()
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
-    return (
-        db.query(Agent)
-        .join(AgentMcpServer)
-        .filter(AgentMcpServer.mcp_server_id == server_id)
-        .all()
-    )
+    return db.query(Agent).join(AgentMcpServer).filter(AgentMcpServer.mcp_server_id == server_id).all()
 
 
 @app.post("/agents", response_model=AgentResponse, tags=["Agents"])
