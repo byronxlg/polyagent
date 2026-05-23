@@ -21,71 +21,53 @@ For detailed information specific to each part of the project, see:
 - **[docs/CLAUDE.md](docs/CLAUDE.md)** - Documentation standards, diagrams, API docs
 - **[database/CLAUDE.md](database/CLAUDE.md)** - Database setup, schema, PostgreSQL configuration
 
-## Universal Code Standards
+## Language-Specific Standards
 
-### Naming and Style
-- **KISS**: Keep It Simple. Favor simple, maintainable solutions over clever code
-- **YAGNI**: You Ain't Gonna Need It. Don't implement features until actually needed
-- **DRY**: Don't Repeat Yourself. Extract repeated logic into utility functions
-- **Naming**: Use descriptive, self-documenting names. Prefer clarity over brevity
-- **Comments**: Explain "why" decisions were made, not "what" the code does
-
-### Code Quality
-- **Function Size**: Keep functions small and focused on a single task
-- **Fail Fast**: Validate inputs early and fail immediately with clear errors
-- **Security**: Never log/commit secrets, validate all inputs, redact sensitive data in logs
-- **Error Handling**: Handle errors gracefully with meaningful, actionable messages
-- **Testing**: Add tests following existing project patterns before marking work complete
-- **Changes**: Make minimal, focused changes that solve one problem at a time
-
-### Python-Specific
+### Python
 - Line length: 112 characters
 - Python 3.11+ required
 - Type annotations required (enforced by ruff)
 - Use Decimal type for all monetary amounts
 - Follow ruff linting rules (comprehensive configuration)
 
-### TypeScript-Specific
+### TypeScript
 - ESLint configured with TypeScript strict mode
 - Use React 19 patterns
 - Prefer functional components with hooks
-
-## Communication Style
-
-- **No Emojis**: Never use emojis in code, comments, commit messages, or documentation
-- **No Em Dashes**: Avoid em dashes in writing; use hyphens or restructure sentences
-- **Clarity**: Write in clear, direct language without unnecessary embellishment
-- **Review First**: When asked to review or analyze, do that first and report findings before making changes
 
 ## Git Workflow
 
 **Always use feature branches for changes. Never commit directly to main.**
 
-### Making Changes (Worktrees)
+### Making Changes (Slash Commands)
 
-Use git worktrees for isolated feature development. This allows parallel Claude sessions without conflicts.
+Two slash commands handle the full workflow from idea to parallel agent:
 
-1. **Create a worktree** for your feature:
-   ```bash
-   # From the main repo directory
-   git worktree add ../polyagent-<short-description> -b feature/<short-description>
-   cd ../polyagent-<short-description>
-   ```
+**`/issue <description>`** - Draft and create a GitHub issue
 
-2. **Work in the worktree** - make changes and commits
+```
+/issue add rate limiting to the API
+```
 
-3. **Push and create a PR** when ready:
-   ```bash
-   git push -u origin feature/<short-description>
-   gh pr create --fill
-   ```
+Claude drafts a structured issue (title, background, requirements, acceptance
+criteria) and creates it via `gh issue create`. Use this from any Claude Code
+session, including mobile.
 
-4. **Cleanup** after PR is merged:
-   ```bash
-   cd ../polyagent  # Return to main repo
-   git worktree remove ../polyagent-<short-description>
-   git branch -d feature/<short-description>
-   ```
+**`/start-issue <number>`** - Spin up an isolated agent for an issue
+
+```
+/start-issue 42
+```
+
+Claude fetches the issue, creates a worktree (`../polyagent-issue-<N>-<slug>`),
+and opens a new tmux window with Claude Code pre-loaded with the issue context.
+Multiple issues can run as parallel agents in separate windows.
+
+**Cleanup** after a PR is merged:
+```bash
+git worktree remove ../polyagent-issue-<N>-<slug>
+git branch -d feature/issue-<N>-<slug>
+```
 
 ### Quick Reference
 
@@ -93,11 +75,8 @@ Use git worktrees for isolated feature development. This allows parallel Claude 
 # List worktrees
 git worktree list
 
-# Create worktree with new branch
-git worktree add ../polyagent-foo -b feature/foo
-
-# Remove worktree after merge
-git worktree remove ../polyagent-foo
+# Remove a worktree after merge
+git worktree remove ../polyagent-issue-<N>-<slug>
 ```
 
 ### Branch Naming
